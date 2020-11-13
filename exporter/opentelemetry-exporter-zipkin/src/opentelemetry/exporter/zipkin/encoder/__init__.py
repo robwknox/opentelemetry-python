@@ -52,9 +52,7 @@ class Encoder(abc.ABC):
     """
 
     def __init__(
-        self,
-        local_endpoint: Endpoint,
-        max_tag_value_length: int = None,
+        self, local_endpoint: Endpoint, max_tag_value_length: int = None,
     ):
         self.local_endpoint = local_endpoint
         self.max_tag_value_length = (

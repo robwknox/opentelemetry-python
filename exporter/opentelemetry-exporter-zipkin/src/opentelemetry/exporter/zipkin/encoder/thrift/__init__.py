@@ -57,9 +57,7 @@ class ThriftEncoder(Encoder):
     def _encode(self, spans: Sequence[Span]):
         encoded_local_endpoint = self._encode_local_endpoint()
         buffer = TMemoryBuffer()
-        protocol = TBinaryProtocol.TBinaryProtocolFactory().getProtocol(
-            buffer
-        )
+        protocol = TBinaryProtocol.TBinaryProtocolFactory().getProtocol(buffer)
         protocol.writeListBegin(TType.STRUCT, len(spans))
 
         for span in spans:
@@ -73,7 +71,7 @@ class ThriftEncoder(Encoder):
         endpoint = ttypes.Endpoint(
             service_name=self.local_endpoint.service_name,
             ipv4=self.local_endpoint.ipv4,
-            port=self.local_endpoint.port
+            port=self.local_endpoint.port,
         )
 
         if self.local_endpoint.ipv6 is not None:
@@ -132,7 +130,7 @@ class ThriftEncoder(Encoder):
             thrift_binary_annotations.append(
                 ttypes.BinaryAnnotation(
                     key=binary_annotation["key"],
-                    value=binary_annotation["value"].encode('utf-8'),
+                    value=binary_annotation["value"].encode("utf-8"),
                     annotation_type=ttypes.AnnotationType.STRING,
                     host=encoded_local_endpoint,
                 )
@@ -153,11 +151,11 @@ class ThriftEncoder(Encoder):
                 [
                     {
                         "key": "otel.instrumentation_library.name",
-                        "value": span.instrumentation_info.name
+                        "value": span.instrumentation_info.name,
                     },
                     {
                         "key": "otel.instrumentation_library.version",
-                        "value": span.instrumentation_info.version
+                        "value": span.instrumentation_info.version,
                     },
                 ]
             )
@@ -166,7 +164,7 @@ class ThriftEncoder(Encoder):
             binary_annotations.append(
                 {
                     "key": "otel.status_code",
-                    "value": str(span.status.status_code.value)
+                    "value": str(span.status.status_code.value),
                 }
             )
 
@@ -190,7 +188,7 @@ class ThriftEncoder(Encoder):
         63 bits instead of 64 bits because we have to leave 1 bit in the API
         field for the positive sign representation.
         """
-        bits = format(span_id, 'b')
+        bits = format(span_id, "b")
         if len(bits) < 64:
             encoded_span_id = span_id
         else:
@@ -219,7 +217,7 @@ class ThriftEncoder(Encoder):
         :param trace_id:
         :return: tuple of (encoded_trace_id, encoded_trace_id_high)
         """
-        bits = format(trace_id, 'b')
+        bits = format(trace_id, "b")
         bits_length = len(bits)
         encoded_trace_id = int(bits[-63:], 2)
 
@@ -231,7 +229,7 @@ class ThriftEncoder(Encoder):
                     "protocol signed integer format: [%02x => %02x%02x]",
                     trace_id,
                     encoded_trace_id_high,
-                    encoded_trace_id
+                    encoded_trace_id,
                 )
         else:
             encoded_trace_id_high = None

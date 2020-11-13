@@ -182,7 +182,11 @@ class JsonV1Encoder(JsonEncoder):
             if isinstance(tag_value, str) and self.max_tag_value_length > 0:
                 tag_value = tag_value[: self.max_tag_value_length]
             binary_annotations.append(
-                {"key": tag_key, "value": tag_value, "endpoint": encoded_local_endpoint}
+                {
+                    "key": tag_key,
+                    "value": tag_value,
+                    "endpoint": encoded_local_endpoint,
+                }
             )
 
         if span.instrumentation_info is not None:
