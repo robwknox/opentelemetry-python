@@ -18,9 +18,9 @@ Base module and abstract class for concrete transport encoders to extend.
 """
 
 import abc
-from enum import Enum
 import json
 import logging
+from enum import Enum
 from typing import Sequence
 
 from opentelemetry.exporter.zipkin.endpoint import Endpoint
@@ -41,6 +41,7 @@ class Encoding(Enum):
     JSON_V1 = "json_v1"
     JSON_V2 = "json_v2"
     PROTOBUF = "protobuf"
+    THRIFT = "thrift"
 
 
 class Encoder(abc.ABC):

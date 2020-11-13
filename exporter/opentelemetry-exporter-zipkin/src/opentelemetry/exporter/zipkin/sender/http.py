@@ -57,11 +57,18 @@ class HttpSender(Sender):
 
     @staticmethod
     def supported_encodings() -> List[Encoding]:
-        return [Encoding.JSON_V1, Encoding.JSON_V2, Encoding.PROTOBUF]
+        return [
+            Encoding.JSON_V1,
+            Encoding.JSON_V2,
+            Encoding.PROTOBUF,
+            Encoding.THRIFT
+        ]
 
     def content_type(self):
         if self.encoding == Encoding.PROTOBUF:
             content_type = "application/x-protobuf"
+        elif self.encoding == Encoding.THRIFT:
+            content_type = "application/x-thrift"
         else:
             content_type = "application/json"
         return content_type

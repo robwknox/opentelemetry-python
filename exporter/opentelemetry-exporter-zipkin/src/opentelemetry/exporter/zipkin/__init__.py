@@ -18,9 +18,9 @@ This library allows to export tracing data to `Zipkin <https://zipkin.io/>`_.
 Usage
 -----
 
-The **OpenTelemetry Zipkin Exporter** allows to export `OpenTelemetry`_ traces to `Zipkin`_.
-This exporter always send traces to the configured Zipkin collector using HTTP.
-
+The **OpenTelemetry Zipkin Exporter** allows to export `OpenTelemetry`_
+traces to `Zipkin`_. This exporter always send traces to the configured Zipkin
+collector using HTTP.
 
 .. _Zipkin: https://zipkin.io/
 .. _OpenTelemetry: https://github.com/open-telemetry/opentelemetry-python/
@@ -110,6 +110,7 @@ from opentelemetry.exporter.zipkin.encoder.json import (
     JsonV2Encoder,
 )
 from opentelemetry.exporter.zipkin.encoder.protobuf import ProtobufEncoder
+from opentelemetry.exporter.zipkin.encoder.thrift import ThriftEncoder
 from opentelemetry.exporter.zipkin.endpoint import Endpoint
 from opentelemetry.exporter.zipkin.sender.http import Sender, HttpSender
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
@@ -178,10 +179,14 @@ class ZipkinSpanExporter(SpanExporter):
                 self.encoder = JsonV2Encoder(local_endpoint)
             elif encoding == Encoding.PROTOBUF:
                 self.encoder = ProtobufEncoder(local_endpoint)
+            elif encoding == Encoding.THRIFT:
+                self.encoder = ThriftEncoder(local_endpoint)
 
-        endpoint = Configuration().EXPORTER_ZIPKIN_ENDPOINT or endpoint
-
-        self.sender = sender or HttpSender(endpoint, encoding)
+        if sender is not None:
+            self.sender = sender
+        else:
+            endpoint = Configuration().EXPORTER_ZIPKIN_ENDPOINT or endpoint
+            self.sender = HttpSender(endpoint, encoding)
 
     def export(self, spans: Sequence[Span]) -> SpanExportResult:
         return self.sender.send(self.encoder.encode(spans))
