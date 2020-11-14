@@ -38,8 +38,10 @@ encode_trace_id() and encode_span_id() methods for details.
 import logging
 from typing import Sequence
 
-from opentelemetry.exporter.zipkin.encoder import Encoder
-from opentelemetry.exporter.zipkin.encoder.thrift.gen.zipkinCore import ttypes
+from opentelemetry.exporter.zipkin.encoder.v1 import V1Encoder
+from opentelemetry.exporter.zipkin.encoder.v1.thrift.gen.zipkinCore import (
+    ttypes,
+)
 from opentelemetry.trace import Span, SpanContext
 from thrift.Thrift import TType
 from thrift.transport.TTransport import TMemoryBuffer
@@ -48,23 +50,20 @@ from thrift.protocol import TBinaryProtocol
 logger = logging.getLogger(__name__)
 
 
-class ThriftEncoder(Encoder):
+class ThriftEncoder(V1Encoder):
     """Zipkin Export Encoder for Thrift
 
     API spec: https://github.com/openzipkin/zipkin-api/tree/master/thrift
     """
 
-    def _encode(self, spans: Sequence[Span]):
+    def _encode_spans(self, spans: Sequence[Span]):
         encoded_local_endpoint = self._encode_local_endpoint()
         buffer = TMemoryBuffer()
         protocol = TBinaryProtocol.TBinaryProtocolFactory().getProtocol(buffer)
         protocol.writeListBegin(TType.STRUCT, len(spans))
-
         for span in spans:
             self._encode_span(span, encoded_local_endpoint).write(protocol)
-
         protocol.writeListEnd()
-
         return buffer.getvalue()
 
     def _encode_local_endpoint(self):
@@ -73,10 +72,8 @@ class ThriftEncoder(Encoder):
             ipv4=self.local_endpoint.ipv4,
             port=self.local_endpoint.port,
         )
-
         if self.local_endpoint.ipv6 is not None:
             endpoint.ipv6 = bytes(self.local_endpoint.ipv6)
-
         return endpoint
 
     def _encode_span(self, span: Span, encoded_local_endpoint):
@@ -126,57 +123,19 @@ class ThriftEncoder(Encoder):
     def _encode_binary_annotations(self, span: Span, encoded_local_endpoint):
         thrift_binary_annotations = []
 
-        for binary_annotation in self._extract_binary_annotations(span):
+        for binary_annotation in self._extract_binary_annotations(
+            span, encoded_local_endpoint
+        ):
             thrift_binary_annotations.append(
                 ttypes.BinaryAnnotation(
                     key=binary_annotation["key"],
                     value=binary_annotation["value"].encode("utf-8"),
                     annotation_type=ttypes.AnnotationType.STRING,
-                    host=encoded_local_endpoint,
+                    host=binary_annotation["endpoint"],
                 )
             )
 
         return thrift_binary_annotations
-
-    def _extract_binary_annotations(self, span: Span):
-        binary_annotations = []
-
-        for tag_key, tag_value in self._extract_tags_from_span(span).items():
-            if isinstance(tag_value, str) and self.max_tag_value_length > 0:
-                tag_value = tag_value[: self.max_tag_value_length]
-            binary_annotations.append({"key": tag_key, "value": tag_value})
-
-        if span.instrumentation_info is not None:
-            binary_annotations.extend(
-                [
-                    {
-                        "key": "otel.instrumentation_library.name",
-                        "value": span.instrumentation_info.name,
-                    },
-                    {
-                        "key": "otel.instrumentation_library.version",
-                        "value": span.instrumentation_info.version,
-                    },
-                ]
-            )
-
-        if span.status is not None:
-            binary_annotations.append(
-                {
-                    "key": "otel.status_code",
-                    "value": str(span.status.status_code.value),
-                }
-            )
-
-            if span.status.description is not None:
-                binary_annotations.append(
-                    {
-                        "key": "otel.status_description",
-                        "value": span.status.description,
-                    }
-                )
-
-        return binary_annotations
 
     @staticmethod
     def encode_span_id(span_id: int):
