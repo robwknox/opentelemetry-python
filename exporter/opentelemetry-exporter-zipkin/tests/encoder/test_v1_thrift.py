@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
 import ipaddress
+import json
+import sys
 
 from .common_tests import CommonEncoderTestCases
 from opentelemetry import trace as trace_api
@@ -34,7 +35,7 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
     def get_encoder(*args, **kwargs) -> ThriftEncoder:
         return ThriftEncoder(*args, **kwargs)
 
-    def test_encode_trace_id_63_bits(self):
+    def test_encode_trace_id(self):
         trace_id = 2**63 - 1
         encoded_trace_id, encoded_trace_id_high = (
             ThriftEncoder.encode_trace_id(trace_id)
@@ -387,13 +388,65 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
 
     def assertEqual_encoded_spans(self, expected_thrift_spans,
                                   actual_serialized_output):
-        buffer = TMemoryBuffer()
-        protocol = TBinaryProtocol.TBinaryProtocolFactory().getProtocol(buffer)
-        protocol.writeListBegin(TType.STRUCT, len(expected_thrift_spans))
+        """Since list ordering is not guaranteed in py3.5 or lower we can't
+        compare the serialized output. Instead we deserialize the actual
+        output and compare the thrift objects while explicitly handling the
+        annotations and binary annotations lists."""
+        if sys.version_info.major == 3 and sys.version_info.minor <= 5:
+            actual_thrift_spans = []
+            protocol = TBinaryProtocol.TBinaryProtocolFactory().getProtocol(
+                TMemoryBuffer(actual_serialized_output)
+            )
+            etype, size = protocol.readListBegin()
+            for _ in range(size):
+                span = ttypes.Span()
+                span.read(protocol)
+                actual_thrift_spans.append(span)
+            protocol.readListEnd()
 
-        for expected_thrift_span in expected_thrift_spans:
-            expected_thrift_span.write(protocol)
-        protocol.writeListEnd()
-        expected_serialized_output = buffer.getvalue()
+            for expected_span, actual_span in zip(
+                    expected_thrift_spans, actual_thrift_spans
+            ):
+                actual_annotations = actual_span.annotations
+                if actual_annotations is not None:
+                    actual_annotations = sorted(
+                        actual_annotations, key=lambda x: x.timestamp
+                    )
+                expected_annotations = expected_span.annotations
+                if expected_annotations is not None:
+                    expected_annotations = sorted(
+                        expected_annotations, key=lambda x: x.timestamp
+                    )
+                actual_binary_annotations = actual_span.binary_annotations
+                if actual_binary_annotations is not None:
+                    actual_binary_annotations = sorted(
+                        actual_binary_annotations, key=lambda x: x.key
+                    )
+                expected_binary_annotations = expected_span.binary_annotations
+                if expected_binary_annotations is not None:
+                    expected_binary_annotations = sorted(
+                        expected_binary_annotations, key=lambda x: x.key
+                    )
 
-        self.assertEqual(expected_serialized_output, actual_serialized_output)
+                actual_span.annotations = []
+                actual_span.binary_annotations = []
+                expected_span.annotations = []
+                expected_span.binary_annotations = []
+
+                self.assertEqual(expected_span, actual_span)
+                self.assertEqual(expected_annotations, actual_annotations)
+                self.assertEqual(
+                    expected_binary_annotations,
+                    actual_binary_annotations
+                )
+        else:
+            buffer = TMemoryBuffer()
+            protocol = TBinaryProtocol.TBinaryProtocolFactory().getProtocol(
+                buffer)
+            protocol.writeListBegin(TType.STRUCT, len(expected_thrift_spans))
+            for expected_thrift_span in expected_thrift_spans:
+                expected_thrift_span.write(protocol)
+            protocol.writeListEnd()
+            expected_serialized_output = buffer.getvalue()
+            self.assertEqual(expected_serialized_output,
+                             actual_serialized_output)

@@ -232,7 +232,7 @@ class CommonEncoderTestCases:
             span3.end(end_time=end_times[2])
 
             span4 = trace._Span(
-                name="test-span-3", context=other_context, parent=None
+                name="test-span-4", context=other_context, parent=None
             )
             span4.start(start_time=start_times[3])
             span4.resource = trace.Resource({})
