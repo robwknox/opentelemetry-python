@@ -155,7 +155,7 @@ class CommonEncoderTestCases:
 
         @staticmethod
         def get_exhaustive_otel_span_list() -> List[trace._Span]:
-            trace_id = 0x6E0C63257DE34C926F9EFCD03927272E
+            trace_id = 0x3E0C63257DE34C926F9EFCD03927272E
 
             base_time = 683647322 * 10 ** 9  # in ns
             start_times = (

@@ -183,8 +183,13 @@ class TestZipkinSpanExporter(unittest.TestCase):
 
     @patch("requests.post")
     def test_invalid_response(self, mock_post):
-        mock_post.return_value = MockResponse(404)
-        spans = []
-        exporter = ZipkinSpanExporter("test-service")
-        status = exporter.export(spans)
-        self.assertEqual(SpanExportResult.FAILURE, status)
+        with self.assertLogs(level='ERROR') as cm:
+            mock_post.return_value = MockResponse(404)
+            self.assertEqual(
+                SpanExportResult.FAILURE,
+                ZipkinSpanExporter("test-service").export([])
+            )
+        self.assertEqual(
+            "Traces cannot be uploaded; status code: 404, message 404",
+            cm.records[0].message
+        )

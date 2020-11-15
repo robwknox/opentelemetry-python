@@ -35,6 +35,7 @@ trace_id into two components if necessary for transport. Refer to the
 encode_trace_id() and encode_span_id() methods for details.
 """
 
+import ipaddress
 import logging
 from typing import Sequence
 
@@ -69,11 +70,16 @@ class ThriftEncoder(V1Encoder):
     def _encode_local_endpoint(self):
         endpoint = ttypes.Endpoint(
             service_name=self.local_endpoint.service_name,
-            ipv4=self.local_endpoint.ipv4,
             port=self.local_endpoint.port,
         )
+        if self.local_endpoint.ipv4 is not None:
+            endpoint.ipv4 = ipaddress.ip_address(
+                self.local_endpoint.ipv4
+            ).packed
         if self.local_endpoint.ipv6 is not None:
-            endpoint.ipv6 = bytes(self.local_endpoint.ipv6)
+            endpoint.ipv6 = ipaddress.ip_address(
+                self.local_endpoint.ipv6
+            ).packed
         return endpoint
 
     def _encode_span(self, span: Span, encoded_local_endpoint):
@@ -107,18 +113,22 @@ class ThriftEncoder(V1Encoder):
         return thrift_span
 
     def _encode_annotations(self, span: Span, encoded_local_endpoint):
-        thrift_annotations = []
-
-        for annotation in self._extract_annotations_from_events(span.events):
-            thrift_annotations.append(
-                ttypes.Annotation(
-                    timestamp=annotation["timestamp"],
-                    value=annotation["value"],
-                    host=encoded_local_endpoint,
+        annotations = self._extract_annotations_from_events(span.events)
+        if annotations is None:
+            encoded_annotations = None
+        else:
+            encoded_annotations = []
+            for annotation in self._extract_annotations_from_events(
+                span.events
+            ):
+                encoded_annotations.append(
+                    ttypes.Annotation(
+                        timestamp=annotation["timestamp"],
+                        value=annotation["value"],
+                        host=encoded_local_endpoint,
+                    )
                 )
-            )
-
-        return thrift_annotations
+        return encoded_annotations
 
     def _encode_binary_annotations(self, span: Span, encoded_local_endpoint):
         thrift_binary_annotations = []
