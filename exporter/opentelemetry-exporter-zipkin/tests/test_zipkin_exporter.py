@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=too-many-lines
 import os
 import unittest
-from unittest.mock import patch
+
 
 from opentelemetry.configuration import Configuration
 from opentelemetry.exporter.zipkin import (
@@ -29,13 +28,6 @@ from opentelemetry.exporter.zipkin.encoder.v2.json import JsonV2Encoder
 from opentelemetry.exporter.zipkin.encoder.v2.protobuf import ProtobufEncoder
 from opentelemetry.exporter.zipkin.endpoint import Endpoint
 from opentelemetry.exporter.zipkin.sender.http import HttpSender
-from opentelemetry.sdk.trace.export import SpanExportResult
-
-
-class MockResponse:
-    def __init__(self, status_code):
-        self.status_code = status_code
-        self.text = status_code
 
 
 class TestZipkinSpanExporter(unittest.TestCase):
@@ -180,16 +172,3 @@ class TestZipkinSpanExporter(unittest.TestCase):
         self.assertIsInstance(exporter.sender, HttpSender)
         self.assertEqual(exporter.sender.endpoint, sender_param_endpoint)
         self.assertEqual(exporter.sender.encoding, sender_param_encoding)
-
-    @patch("requests.post")
-    def test_invalid_response(self, mock_post):
-        with self.assertLogs(level='ERROR') as cm:
-            mock_post.return_value = MockResponse(404)
-            self.assertEqual(
-                SpanExportResult.FAILURE,
-                ZipkinSpanExporter("test-service").export([])
-            )
-        self.assertEqual(
-            "Traces cannot be uploaded; status code: 404, message 404",
-            cm.records[0].message
-        )
