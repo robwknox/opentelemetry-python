@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Support for v2 api protobuf format ([#1318](https://github.com/open-telemetry/opentelemetry-python/pull/1318))
+- Support for v1 api json format (TBD)
+
 ## Version 0.14b0
 
 Released 2020-10-13
