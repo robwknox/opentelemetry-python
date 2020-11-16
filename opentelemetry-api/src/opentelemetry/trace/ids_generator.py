@@ -46,7 +46,7 @@ class RandomIdsGenerator(IdsGenerator):
     """
 
     def generate_span_id(self) -> int:
-        return random.getrandbits(63)
+        return random.getrandbits(64)
 
     def generate_trace_id(self) -> int:
-        return random.getrandbits(126)
+        return random.getrandbits(128)

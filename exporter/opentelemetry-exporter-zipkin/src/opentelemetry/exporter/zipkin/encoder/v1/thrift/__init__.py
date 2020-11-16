@@ -33,10 +33,15 @@ Which in turn results in our encoding having truncation logic built-in to avoid
 overflow when converting from unsigned -> signed ints, as well as to chunk the
 trace_id into two components if necessary for transport. Refer to the
 encode_trace_id() and encode_span_id() methods for details.
+
+If you wish to avoid truncation, you can use ThriftRandomIdsGenerator class
+provided in this module to override the default API ID generator in a given
+TracerProvider().
 """
 
 import ipaddress
 import logging
+import random
 from typing import Sequence
 
 from opentelemetry.exporter.zipkin.encoder.v1 import V1Encoder
@@ -44,6 +49,7 @@ from opentelemetry.exporter.zipkin.encoder.v1.thrift.gen.zipkinCore import (
     ttypes,
 )
 from opentelemetry.trace import Span, SpanContext
+from opentelemetry.trace.ids_generator import RandomIdsGenerator
 from thrift.Thrift import TType
 from thrift.transport.TTransport import TMemoryBuffer
 from thrift.protocol import TBinaryProtocol
@@ -204,3 +210,40 @@ class ThriftEncoder(V1Encoder):
             encoded_trace_id_high = None
 
         return encoded_trace_id, encoded_trace_id_high
+
+
+class ThriftRandomIdsGenerator(RandomIdsGenerator):
+    """
+    ID generator for Thrift encoder to avoid truncation of trace and span ids.
+
+    .. code:: python
+
+        from opentelemetry.exporter.zipkin.encoder.v1.thrift import(
+            ThriftRandomIdsGenerator
+        )
+
+        trace.set_tracer_provider(TracerProvider(
+            ids_generator=ThriftRandomIdsGenerator()
+        ))
+        tracer = trace.get_tracer(__name__)
+
+        # ... follow normal pattern of tracer usage ...
+
+    Thrift only supports signed integers (max 64 bits). This results in
+    the Zipkin Thrift API having definitions of:
+
+          i64 id (span id)
+          i64 trace_id
+          i64 trace_id_high
+
+    Which in turn results in our encoding having truncation logic built-in to avoid
+    overflow when converting from unsigned -> signed ints, as well as to chunk the
+    trace_id into two components if necessary for transport. Refer to the
+    encode_trace_id() and encode_span_id() methods for details.
+    """
+
+    def generate_span_id(self) -> int:
+        return random.getrandbits(63)
+
+    def generate_trace_id(self) -> int:
+        return random.getrandbits(126)
