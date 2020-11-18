@@ -16,11 +16,11 @@
 
 API spec: https://github.com/openzipkin/zipkin-api/blob/master/zipkin.proto
 """
-import ipaddress
-from typing import Sequence
+from typing import List, Optional, Sequence
 
 from opentelemetry.exporter.zipkin.encoder import Encoder
 from opentelemetry.exporter.zipkin.encoder.v2.protobuf.gen import zipkin_pb2
+from opentelemetry.sdk.trace import Event
 from opentelemetry.trace import Span, SpanContext, SpanKind
 
 
@@ -48,7 +48,9 @@ class ProtobufEncoder(Encoder):
             )
         return encoded_spans.SerializeToString()
 
-    def _encode_span(self, span: Span, encoded_local_endpoint):
+    def _encode_span(
+        self, span: Span, encoded_local_endpoint: zipkin_pb2.Endpoint
+    ) -> zipkin_pb2.Span:
         context = span.get_span_context()
         # pylint: disable=no-member
         encoded_span = zipkin_pb2.Span(
@@ -70,7 +72,9 @@ class ProtobufEncoder(Encoder):
 
         return encoded_span
 
-    def _encode_annotations(self, span_events):
+    def _encode_annotations(
+        self, span_events: Optional[List[Event]]
+    ) -> Optional[List]:
         annotations = self._extract_annotations_from_events(span_events)
         if annotations is None:
             encoded_annotations = None
@@ -91,14 +95,10 @@ class ProtobufEncoder(Encoder):
         )
 
         if self.local_endpoint.ipv4 is not None:
-            encoded_local_endpoint.ipv4 = ipaddress.ip_address(
-                self.local_endpoint.ipv4
-            ).packed
+            encoded_local_endpoint.ipv4 = self.local_endpoint.ipv4.packed
 
         if self.local_endpoint.ipv6 is not None:
-            encoded_local_endpoint.ipv6 = ipaddress.ip_address(
-                self.local_endpoint.ipv6
-            ).packed
+            encoded_local_endpoint.ipv6 = self.local_endpoint.ipv6.packed
 
         if self.local_endpoint.port is not None:
             encoded_local_endpoint.port = self.local_endpoint.port
@@ -106,9 +106,9 @@ class ProtobufEncoder(Encoder):
         return encoded_local_endpoint
 
     @staticmethod
-    def encode_span_id(span_id: int):
+    def encode_span_id(span_id: int) -> bytes:
         return span_id.to_bytes(length=8, byteorder="big", signed=False)
 
     @staticmethod
-    def encode_trace_id(trace_id: int):
+    def encode_trace_id(trace_id: int) -> bytes:
         return trace_id.to_bytes(length=16, byteorder="big", signed=False)

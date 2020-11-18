@@ -16,7 +16,7 @@
 
 import abc
 import logging
-from typing import List, Sequence
+from typing import Sequence, Tuple
 
 from opentelemetry.exporter.zipkin.encoder import Encoding
 from opentelemetry.sdk.trace.export import SpanExportResult
@@ -42,7 +42,7 @@ class Sender:
         self.endpoint = endpoint
 
         if encoding not in self.supported_encodings():
-            logger.error(
+            raise ValueError(
                 "Encoding type %s is not supported by this sender", encoding
             )
 
@@ -54,5 +54,5 @@ class Sender:
 
     @staticmethod
     @abc.abstractmethod
-    def supported_encodings() -> List[Encoding]:
+    def supported_encodings() -> Tuple[Encoding, ...]:
         pass
