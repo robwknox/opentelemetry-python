@@ -30,12 +30,8 @@ class MockResponse:
 class TestHttpSender(unittest.TestCase):
 
     def test_constructor_invalid_encoding(self):
-        with self.assertLogs(level='ERROR') as cm:
+        with self.assertRaises(ValueError):
             HttpSender('https://localhost/api', "Fake_Encoding")
-        self.assertEqual(
-            "Encoding type Fake_Encoding is not supported by this sender",
-            cm.records[0].message
-        )
 
     @patch("requests.post")
     def test_send_endpoint(self, mock_post):
