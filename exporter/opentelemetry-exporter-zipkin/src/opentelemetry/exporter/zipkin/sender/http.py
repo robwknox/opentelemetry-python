@@ -23,7 +23,7 @@ from opentelemetry.exporter.zipkin.sender import Sender
 from opentelemetry.sdk.trace.export import SpanExportResult
 from opentelemetry.trace import Span
 
-DEFAULT_ENCODING = Encoding.JSON_V2
+DEFAULT_ENCODING = Encoding.V2_JSON
 SUCCESS_STATUS_CODES = (200, 202)
 
 logger = logging.getLogger(__name__)
@@ -56,16 +56,16 @@ class HttpSender(Sender):
     @staticmethod
     def supported_encodings() -> Tuple[Encoding, ...]:
         return (
-            Encoding.JSON_V1,
-            Encoding.JSON_V2,
-            Encoding.PROTOBUF,
-            Encoding.THRIFT,
+            Encoding.V1_JSON,
+            Encoding.V1_THRIFT,
+            Encoding.V2_JSON,
+            Encoding.V2_PROTOBUF,
         )
 
     def content_type(self) -> str:
-        if self.encoding == Encoding.PROTOBUF:
+        if self.encoding == Encoding.V2_PROTOBUF:
             content_type = "application/x-protobuf"
-        elif self.encoding == Encoding.THRIFT:
+        elif self.encoding == Encoding.V1_THRIFT:
             content_type = "application/x-thrift"
         else:
             content_type = "application/json"

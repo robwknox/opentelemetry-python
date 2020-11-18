@@ -28,10 +28,9 @@ class MockResponse:
 
 
 class TestHttpSender(unittest.TestCase):
-
     def test_constructor_invalid_encoding(self):
         with self.assertRaises(ValueError):
-            HttpSender('https://localhost/api', "Fake_Encoding")
+            HttpSender("https://localhost/api", "Fake_Encoding")
 
     @patch("requests.post")
     def test_send_endpoint(self, mock_post):
@@ -52,17 +51,19 @@ class TestHttpSender(unittest.TestCase):
         self.assertEqual(content_type, kwargs["headers"]["Content-Type"])
 
     def test_send_content_type_v1_thrift(self):
-        self._test_send_content_type(Encoding.THRIFT, "application/x-thrift")
+        self._test_send_content_type(
+            Encoding.V1_THRIFT, "application/x-thrift"
+        )
 
     def test_send_content_type_v1_json(self):
-        self._test_send_content_type(Encoding.JSON_V1, "application/json")
+        self._test_send_content_type(Encoding.V1_JSON, "application/json")
 
     def test_send_content_type_v2_json(self):
-        self._test_send_content_type(Encoding.JSON_V2, "application/json")
+        self._test_send_content_type(Encoding.V2_JSON, "application/json")
 
     def test_send_content_type_v2_protobuf(self):
         self._test_send_content_type(
-            Encoding.PROTOBUF, "application/x-protobuf"
+            Encoding.V2_PROTOBUF, "application/x-protobuf"
         )
 
     @patch("requests.post")
@@ -70,18 +71,18 @@ class TestHttpSender(unittest.TestCase):
         mock_post.return_value = MockResponse(200)
         self.assertEqual(
             SpanExportResult.SUCCESS,
-            ZipkinSpanExporter("test-service").export([])
+            ZipkinSpanExporter("test-service").export([]),
         )
 
     @patch("requests.post")
     def test_response_failure(self, mock_post):
-        with self.assertLogs(level='ERROR') as cm:
+        with self.assertLogs(level="ERROR") as cm:
             mock_post.return_value = MockResponse(404)
             self.assertEqual(
                 SpanExportResult.FAILURE,
-                ZipkinSpanExporter("test-service").export([])
+                ZipkinSpanExporter("test-service").export([]),
             )
         self.assertEqual(
             "Traces cannot be uploaded; status code: 404, message 404",
-            cm.records[0].message
+            cm.records[0].message,
         )
