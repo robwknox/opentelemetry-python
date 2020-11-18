@@ -131,9 +131,9 @@ class ZipkinSpanExporter(SpanExporter):
 
     def __init__(
         self,
-        service_name: str = DEFAULT_SERVICE_NAME,
-        endpoint: str = DEFAULT_ENDPOINT,
-        encoding: Encoding = DEFAULT_ENCODING,
+        service_name: str = None,
+        endpoint: str = None,
+        encoding: Encoding = None,
         encoder: Encoder = None,
         sender: Sender = None,
     ):
@@ -160,16 +160,21 @@ class ZipkinSpanExporter(SpanExporter):
         'endpoint' params, the sender will take precedence and ignore those
         params.
         """
-        env_encoding = Configuration().EXPORTER_ZIPKIN_ENCODING
-        if env_encoding is not None:
-            encoding = Encoding(env_encoding)
+        if encoding is None:
+            env_encoding = Configuration().EXPORTER_ZIPKIN_ENCODING
+            if env_encoding is not None:
+                encoding = Encoding(env_encoding)
+            else:
+                encoding = DEFAULT_ENCODING
 
         if encoder is not None:
             self.encoder = encoder
         else:
-            service_name = (
-                Configuration().EXPORTER_ZIPKIN_SERVICE_NAME or service_name
-            )
+            if service_name is None:
+                service_name = (
+                    Configuration().EXPORTER_ZIPKIN_SERVICE_NAME
+                    or DEFAULT_SERVICE_NAME
+                )
             # TODO: add logic to determine primary ipv4 and ipv6 addresses to
             #  pass into Endpoint constructor.
             local_endpoint = Endpoint(service_name)
@@ -185,7 +190,11 @@ class ZipkinSpanExporter(SpanExporter):
         if sender is not None:
             self.sender = sender
         else:
-            endpoint = Configuration().EXPORTER_ZIPKIN_ENDPOINT or endpoint
+            if endpoint is None:
+                endpoint = (
+                    Configuration().EXPORTER_ZIPKIN_ENDPOINT
+                    or DEFAULT_ENDPOINT
+                )
             self.sender = HttpSender(endpoint, encoding)
 
     def export(self, spans: Sequence[Span]) -> SpanExportResult:
