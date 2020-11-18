@@ -42,7 +42,7 @@ TracerProvider().
 import ipaddress
 import logging
 import random
-from typing import Sequence
+from typing import List, Optional, Sequence
 
 from opentelemetry.exporter.zipkin.encoder.v1 import V1Encoder
 from opentelemetry.exporter.zipkin.encoder.v1.thrift.gen.zipkinCore import (
@@ -63,7 +63,7 @@ class ThriftEncoder(V1Encoder):
     API spec: https://github.com/openzipkin/zipkin-api/tree/master/thrift
     """
 
-    def _encode_spans(self, spans: Sequence[Span]):
+    def _encode_spans(self, spans: Sequence[Span]) -> str:
         encoded_local_endpoint = self._encode_local_endpoint()
         buffer = TMemoryBuffer()
         protocol = TBinaryProtocol.TBinaryProtocolFactory().getProtocol(buffer)
@@ -73,7 +73,7 @@ class ThriftEncoder(V1Encoder):
         protocol.writeListEnd()
         return buffer.getvalue()
 
-    def _encode_local_endpoint(self):
+    def _encode_local_endpoint(self) -> ttypes.Endpoint:
         endpoint = ttypes.Endpoint(
             service_name=self.local_endpoint.service_name,
             port=self.local_endpoint.port,
@@ -88,7 +88,9 @@ class ThriftEncoder(V1Encoder):
             ).packed
         return endpoint
 
-    def _encode_span(self, span: Span, encoded_local_endpoint):
+    def _encode_span(
+        self, span: Span, encoded_local_endpoint: ttypes.Endpoint
+    ) -> ttypes.Span:
         context = span.get_span_context()
         thrift_trace_id, thrift_trace_id_high = self.encode_trace_id(
             context.trace_id
@@ -118,7 +120,9 @@ class ThriftEncoder(V1Encoder):
 
         return thrift_span
 
-    def _encode_annotations(self, span: Span, encoded_local_endpoint):
+    def _encode_annotations(
+        self, span: Span, encoded_local_endpoint: ttypes.Endpoint
+    ) -> Optional[List[ttypes.Annotation]]:
         annotations = self._extract_annotations_from_events(span.events)
         if annotations is None:
             encoded_annotations = None
@@ -136,7 +140,9 @@ class ThriftEncoder(V1Encoder):
                 )
         return encoded_annotations
 
-    def _encode_binary_annotations(self, span: Span, encoded_local_endpoint):
+    def _encode_binary_annotations(
+        self, span: Span, encoded_local_endpoint: ttypes.Endpoint
+    ) -> List[ttypes.BinaryAnnotation]:
         thrift_binary_annotations = []
 
         for binary_annotation in self._extract_binary_annotations(
@@ -154,7 +160,7 @@ class ThriftEncoder(V1Encoder):
         return thrift_binary_annotations
 
     @staticmethod
-    def encode_span_id(span_id: int):
+    def encode_span_id(span_id: int) -> int:
         """Since Thrift only supports signed integers (max size 64 bits) the
         Zipkin Thrift API defines the span id as an i64 field.
 
@@ -178,7 +184,7 @@ class ThriftEncoder(V1Encoder):
         return encoded_span_id
 
     @staticmethod
-    def encode_trace_id(trace_id: int):
+    def encode_trace_id(trace_id: int) -> (int, Optional[int]):
         """Since Thrift only supports signed integers (max size 64 bits) the
         Zipkin Thrift API defines two fields to hold a trace id:
           - i64 trace_id
