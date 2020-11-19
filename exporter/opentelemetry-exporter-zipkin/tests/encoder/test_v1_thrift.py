@@ -21,7 +21,7 @@ from opentelemetry.exporter.zipkin.encoder.v1.thrift import ThriftEncoder
 from opentelemetry.exporter.zipkin.encoder.v1.thrift.gen.zipkinCore import (
     ttypes,
 )
-from opentelemetry.exporter.zipkin.endpoint import Endpoint
+from opentelemetry.exporter.zipkin.node_endpoint import NodeEndpoint
 from opentelemetry.sdk import trace
 from opentelemetry.trace import SpanKind, TraceFlags
 from thrift.Thrift import TType
@@ -30,73 +30,73 @@ from thrift.protocol import TBinaryProtocol
 
 
 class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
-
     @staticmethod
     def get_encoder(*args, **kwargs) -> ThriftEncoder:
         return ThriftEncoder(*args, **kwargs)
 
     def test_encode_trace_id(self):
-        trace_id = 2**63 - 1
-        encoded_trace_id, encoded_trace_id_high = (
-            ThriftEncoder.encode_trace_id(trace_id)
-        )
+        trace_id = 2 ** 63 - 1
+        (
+            encoded_trace_id,
+            encoded_trace_id_high,
+        ) = ThriftEncoder._encode_trace_id(trace_id)
         self.assertEqual(int(format(trace_id, "b")[-63:], 2), encoded_trace_id)
         self.assertEqual(None, encoded_trace_id_high)
 
     def test_encode_trace_id_64_bits(self):
-        trace_id = 2**63
-        encoded_trace_id, encoded_trace_id_high = (
-            ThriftEncoder.encode_trace_id(trace_id)
-        )
+        trace_id = 2 ** 63
+        (
+            encoded_trace_id,
+            encoded_trace_id_high,
+        ) = ThriftEncoder._encode_trace_id(trace_id)
         self.assertEqual(int(format(trace_id, "b")[-63:], 2), encoded_trace_id)
         self.assertEqual(
-            int(format(trace_id, "b")[-126:-63], 2),
-            encoded_trace_id_high
+            int(format(trace_id, "b")[-126:-63], 2), encoded_trace_id_high
         )
 
     def test_encode_trace_id_126_bits(self):
-        trace_id = 2**126 - 1
-        encoded_trace_id, encoded_trace_id_high = (
-            ThriftEncoder.encode_trace_id(trace_id)
-        )
+        trace_id = 2 ** 126 - 1
+        (
+            encoded_trace_id,
+            encoded_trace_id_high,
+        ) = ThriftEncoder._encode_trace_id(trace_id)
         self.assertEqual(int(format(trace_id, "b")[-63:], 2), encoded_trace_id)
         self.assertEqual(
-            int(format(trace_id, "b")[-126:-63], 2),
-            encoded_trace_id_high
+            int(format(trace_id, "b")[-126:-63], 2), encoded_trace_id_high
         )
 
     def test_encode_trace_id_127_bits(self):
-        trace_id = 2**126
-        with self.assertLogs(level='WARNING') as cm:
-            encoded_trace_id, encoded_trace_id_high = (
-                ThriftEncoder.encode_trace_id(trace_id)
-            )
+        trace_id = 2 ** 126
+        with self.assertLogs(level="WARNING") as cm:
+            (
+                encoded_trace_id,
+                encoded_trace_id_high,
+            ) = ThriftEncoder._encode_trace_id(trace_id)
         self.assertEqual(
-            'Trace id truncated to fit into Thrift protocol signed integer '
-            'format: [40000000000000000000000000000000 => 0000]',
-            cm.records[0].message
+            "Trace id truncated to fit into Thrift protocol signed integer "
+            "format: [40000000000000000000000000000000 => 0000]",
+            cm.records[0].message,
         )
         self.assertEqual(int(format(trace_id, "b")[-63:], 2), encoded_trace_id)
         self.assertEqual(
-            int(format(trace_id, "b")[-126:-63], 2),
-            encoded_trace_id_high
+            int(format(trace_id, "b")[-126:-63], 2), encoded_trace_id_high
         )
 
     def test_encode_span_id(self):
-        span_id = 2**63 - 1
+        span_id = 2 ** 63 - 1
         self.assertEqual(
             int(format(span_id, "b")[-63:], 2),
-            ThriftEncoder.encode_span_id(span_id),
+            ThriftEncoder._encode_span_id(span_id),
         )
 
     def test_encode_span_id_truncate(self):
-        span_id = 2**63
-        with self.assertLogs(level='WARNING') as cm:
-            encoded_span_id = ThriftEncoder.encode_span_id(span_id)
+        span_id = 2 ** 63
+        with self.assertLogs(level="WARNING") as cm:
+            encoded_span_id = ThriftEncoder._encode_span_id(span_id)
         self.assertEqual(
-            'Span id truncated to fit into Thrift protocol signed integer '
-            'format: [8000000000000000 => 00]',
-            cm.records[0].message
+            "Span id truncated to fit into Thrift protocol signed integer "
+            "format: [8000000000000000 => 00]",
+            cm.records[0].message,
         )
         self.assertEqual(int(format(span_id, "b")[-63:], 2), encoded_span_id)
 
@@ -104,7 +104,7 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
         service_name = "test-service-name"
         self.assertEqual(
             ttypes.Endpoint(service_name=service_name),
-            ThriftEncoder(Endpoint(service_name))._encode_local_endpoint(),
+            ThriftEncoder()._encode_local_endpoint(NodeEndpoint(service_name)),
         )
 
     def test_encode_local_endpoint_explicits(self):
@@ -119,9 +119,9 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
                 ipv6=ipaddress.ip_address(ipv6).packed,
                 port=port,
             ),
-            ThriftEncoder(
-                Endpoint(service_name, ipv4, ipv6, port)
-            )._encode_local_endpoint(),
+            ThriftEncoder()._encode_local_endpoint(
+                NodeEndpoint(service_name, ipv4, ipv6, port)
+            ),
         )
 
     def test_encode(self):
@@ -129,7 +129,7 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
         local_endpoint = ttypes.Endpoint(service_name=service_name)
 
         otel_spans = self.get_exhaustive_otel_span_list()
-        thrift_trace_id, thrift_trace_id_high = ThriftEncoder.encode_trace_id(
+        thrift_trace_id, thrift_trace_id_high = ThriftEncoder._encode_trace_id(
             otel_spans[0].context.trace_id
         )
 
@@ -137,29 +137,30 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
             ttypes.Span(
                 trace_id=thrift_trace_id,
                 trace_id_high=thrift_trace_id_high,
-                id=ThriftEncoder.encode_span_id(
+                id=ThriftEncoder._encode_span_id(
                     otel_spans[0].context.span_id
                 ),
                 name=otel_spans[0].name,
-                timestamp=ThriftEncoder.nsec_to_usec_round(
+                timestamp=ThriftEncoder._nsec_to_usec_round(
                     otel_spans[0].start_time
                 ),
                 duration=(
-                    ThriftEncoder.nsec_to_usec_round(
+                    ThriftEncoder._nsec_to_usec_round(
                         otel_spans[0].end_time - otel_spans[0].start_time
                     )
                 ),
                 annotations=[
                     ttypes.Annotation(
-                        timestamp=otel_spans[0].events[0].timestamp
-                        // 10 ** 3,
-                        value=json.dumps({
-                            "event0": {
-                                "annotation_bool": True,
-                                "annotation_string": "annotation_test",
-                                "key_float": 0.3,
+                        timestamp=otel_spans[0].events[0].timestamp // 10 ** 3,
+                        value=json.dumps(
+                            {
+                                "event0": {
+                                    "annotation_bool": True,
+                                    "annotation_string": "annotation_test",
+                                    "key_float": 0.3,
+                                }
                             }
-                        }),
+                        ),
                         host=local_endpoint,
                     )
                 ],
@@ -196,22 +197,22 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
                     ),
                 ],
                 debug=True,
-                parent_id=ThriftEncoder.encode_span_id(
+                parent_id=ThriftEncoder._encode_span_id(
                     otel_spans[0].parent.span_id
                 ),
             ),
             ttypes.Span(
                 trace_id=thrift_trace_id,
                 trace_id_high=thrift_trace_id_high,
-                id=ThriftEncoder.encode_span_id(
+                id=ThriftEncoder._encode_span_id(
                     otel_spans[1].context.span_id
                 ),
                 name=otel_spans[1].name,
-                timestamp=ThriftEncoder.nsec_to_usec_round(
+                timestamp=ThriftEncoder._nsec_to_usec_round(
                     otel_spans[1].start_time
                 ),
                 duration=(
-                    ThriftEncoder.nsec_to_usec_round(
+                    ThriftEncoder._nsec_to_usec_round(
                         otel_spans[1].end_time - otel_spans[1].start_time
                     )
                 ),
@@ -235,15 +236,15 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
             ttypes.Span(
                 trace_id=thrift_trace_id,
                 trace_id_high=thrift_trace_id_high,
-                id=ThriftEncoder.encode_span_id(
+                id=ThriftEncoder._encode_span_id(
                     otel_spans[2].context.span_id
                 ),
                 name=otel_spans[2].name,
-                timestamp=ThriftEncoder.nsec_to_usec_round(
+                timestamp=ThriftEncoder._nsec_to_usec_round(
                     otel_spans[2].start_time
                 ),
                 duration=(
-                    ThriftEncoder.nsec_to_usec_round(
+                    ThriftEncoder._nsec_to_usec_round(
                         otel_spans[2].end_time - otel_spans[2].start_time
                     )
                 ),
@@ -273,15 +274,15 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
             ttypes.Span(
                 trace_id=thrift_trace_id,
                 trace_id_high=thrift_trace_id_high,
-                id=ThriftEncoder.encode_span_id(
+                id=ThriftEncoder._encode_span_id(
                     otel_spans[3].context.span_id
                 ),
                 name=otel_spans[3].name,
-                timestamp=ThriftEncoder.nsec_to_usec_round(
+                timestamp=ThriftEncoder._nsec_to_usec_round(
                     otel_spans[3].start_time
                 ),
                 duration=(
-                    ThriftEncoder.nsec_to_usec_round(
+                    ThriftEncoder._nsec_to_usec_round(
                         otel_spans[3].end_time - otel_spans[3].start_time
                     )
                 ),
@@ -312,7 +313,7 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
 
         self.assertEqual_encoded_spans(
             expected_thrift_spans,
-            ThriftEncoder(Endpoint(service_name)).encode(otel_spans)
+            ThriftEncoder().serialize(otel_spans, NodeEndpoint(service_name)),
         )
 
     def _test_encode_max_tag_length(self, max_tag_value_length: int):
@@ -340,17 +341,17 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
         otel_span.set_attribute("k2", tag2_value)
         otel_span.end(end_time=end_time)
 
-        thrift_trace_id, thrift_trace_id_high = ThriftEncoder.encode_trace_id(
+        thrift_trace_id, thrift_trace_id_high = ThriftEncoder._encode_trace_id(
             trace_id
         )
         thrift_local_endpoint = ttypes.Endpoint(service_name=service_name)
         expected_thrift_span = ttypes.Span(
             trace_id=thrift_trace_id,
             trace_id_high=thrift_trace_id_high,
-            id=ThriftEncoder.encode_span_id(span_id),
+            id=ThriftEncoder._encode_span_id(span_id),
             name=service_name,
-            timestamp=ThriftEncoder.nsec_to_usec_round(start_time),
-            duration=ThriftEncoder.nsec_to_usec_round(duration),
+            timestamp=ThriftEncoder._nsec_to_usec_round(start_time),
+            duration=ThriftEncoder._nsec_to_usec_round(duration),
             annotations=None,
             binary_annotations=[
                 ttypes.BinaryAnnotation(
@@ -372,22 +373,19 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
                     host=thrift_local_endpoint,
                 ),
             ],
-            debug=True
+            debug=True,
         )
-
-        test = ThriftEncoder(Endpoint(service_name))
-        encode = test.encode([otel_span])
 
         self.assertEqual_encoded_spans(
             [expected_thrift_span],
-            ThriftEncoder(
-                Endpoint(service_name),
-                max_tag_value_length
-            ).encode([otel_span])
+            ThriftEncoder(max_tag_value_length).serialize(
+                [otel_span], NodeEndpoint(service_name)
+            ),
         )
 
-    def assertEqual_encoded_spans(self, expected_thrift_spans,
-                                  actual_serialized_output):
+    def assertEqual_encoded_spans(
+        self, expected_thrift_spans, actual_serialized_output
+    ):
         """Since list ordering is not guaranteed in py3.5 or lower we can't
         compare the serialized output. Instead we deserialize the actual
         output and compare the thrift objects while explicitly handling the
@@ -405,7 +403,7 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
             protocol.readListEnd()
 
             for expected_span, actual_span in zip(
-                    expected_thrift_spans, actual_thrift_spans
+                expected_thrift_spans, actual_thrift_spans
             ):
                 actual_annotations = actual_span.annotations
                 if actual_annotations is not None:
@@ -436,17 +434,18 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
                 self.assertEqual(expected_span, actual_span)
                 self.assertEqual(expected_annotations, actual_annotations)
                 self.assertEqual(
-                    expected_binary_annotations,
-                    actual_binary_annotations
+                    expected_binary_annotations, actual_binary_annotations
                 )
         else:
             buffer = TMemoryBuffer()
             protocol = TBinaryProtocol.TBinaryProtocolFactory().getProtocol(
-                buffer)
+                buffer
+            )
             protocol.writeListBegin(TType.STRUCT, len(expected_thrift_spans))
             for expected_thrift_span in expected_thrift_spans:
                 expected_thrift_span.write(protocol)
             protocol.writeListEnd()
             expected_serialized_output = buffer.getvalue()
-            self.assertEqual(expected_serialized_output,
-                             actual_serialized_output)
+            self.assertEqual(
+                expected_serialized_output, actual_serialized_output
+            )

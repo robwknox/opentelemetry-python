@@ -48,6 +48,7 @@ from opentelemetry.exporter.zipkin.encoder.v1 import V1Encoder
 from opentelemetry.exporter.zipkin.encoder.v1.thrift.gen.zipkinCore import (
     ttypes,
 )
+from opentelemetry.exporter.zipkin.node_endpoint import NodeEndpoint
 from opentelemetry.trace import Span, SpanContext
 from opentelemetry.trace.ids_generator import RandomIdsGenerator
 from thrift.Thrift import TType
@@ -63,8 +64,14 @@ class ThriftEncoder(V1Encoder):
     API spec: https://github.com/openzipkin/zipkin-api/tree/master/thrift
     """
 
-    def _encode_spans(self, spans: Sequence[Span]) -> str:
-        encoded_local_endpoint = self._encode_local_endpoint()
+    @staticmethod
+    def content_type() -> str:
+        return "application/x-thrift"
+
+    def serialize(
+        self, spans: Sequence[Span], local_endpoint: NodeEndpoint
+    ) -> str:
+        encoded_local_endpoint = self._encode_local_endpoint(local_endpoint)
         buffer = TMemoryBuffer()
         protocol = TBinaryProtocol.TBinaryProtocolFactory().getProtocol(buffer)
         protocol.writeListBegin(TType.STRUCT, len(spans))
@@ -73,50 +80,42 @@ class ThriftEncoder(V1Encoder):
         protocol.writeListEnd()
         return buffer.getvalue()
 
-    def _encode_local_endpoint(self) -> ttypes.Endpoint:
-        endpoint = ttypes.Endpoint(
-            service_name=self.local_endpoint.service_name,
-            port=self.local_endpoint.port,
-        )
-        if self.local_endpoint.ipv4 is not None:
-            endpoint.ipv4 = ipaddress.ip_address(
-                self.local_endpoint.ipv4
-            ).packed
-        if self.local_endpoint.ipv6 is not None:
-            endpoint.ipv6 = ipaddress.ip_address(
-                self.local_endpoint.ipv6
-            ).packed
-        return endpoint
-
     def _encode_span(
         self, span: Span, encoded_local_endpoint: ttypes.Endpoint
     ) -> ttypes.Span:
         context = span.get_span_context()
-        thrift_trace_id, thrift_trace_id_high = self.encode_trace_id(
+        thrift_trace_id, thrift_trace_id_high = self._encode_trace_id(
             context.trace_id
         )
         thrift_span = ttypes.Span(
             trace_id=thrift_trace_id,
             trace_id_high=thrift_trace_id_high,
-            id=self.encode_span_id(context.span_id),
+            id=self._encode_span_id(context.span_id),
             name=span.name,
-            timestamp=self.nsec_to_usec_round(span.start_time),
-            duration=self.nsec_to_usec_round(span.end_time - span.start_time),
-            annotations=self._encode_annotations(span, encoded_local_endpoint),
-            binary_annotations=self._encode_binary_annotations(
-                span, encoded_local_endpoint
-            ),
+            timestamp=self._nsec_to_usec_round(span.start_time),
+            duration=self._nsec_to_usec_round(span.end_time - span.start_time),
         )
 
-        if context.trace_flags.sampled:
-            thrift_span.debug = True
+        annotations = self._encode_annotations(span, encoded_local_endpoint)
+        if annotations:
+            thrift_span.annotations = annotations
+
+        binary_annotations = self._encode_binary_annotations(
+            span, encoded_local_endpoint
+        )
+        if binary_annotations:
+            thrift_span.binary_annotations = binary_annotations
+
+        debug = self._encode_debug(context)
+        if debug:
+            thrift_span.debug = debug
 
         if isinstance(span.parent, Span):
-            thrift_span.parent_id = self.encode_span_id(
+            thrift_span.parent_id = self._encode_span_id(
                 span.parent.get_span_context().span_id
             )
         elif isinstance(span.parent, SpanContext):
-            thrift_span.parent_id = self.encode_span_id(span.parent.span_id)
+            thrift_span.parent_id = self._encode_span_id(span.parent.span_id)
 
         return thrift_span
 
@@ -144,23 +143,32 @@ class ThriftEncoder(V1Encoder):
         self, span: Span, encoded_local_endpoint: ttypes.Endpoint
     ) -> List[ttypes.BinaryAnnotation]:
         thrift_binary_annotations = []
-
-        for binary_annotation in self._extract_binary_annotations(
-            span, encoded_local_endpoint
-        ):
+        for binary_annotation in self._extract_binary_annotations(span):
             thrift_binary_annotations.append(
                 ttypes.BinaryAnnotation(
                     key=binary_annotation["key"],
                     value=binary_annotation["value"].encode("utf-8"),
                     annotation_type=ttypes.AnnotationType.STRING,
-                    host=binary_annotation["endpoint"],
+                    host=encoded_local_endpoint,
                 )
             )
-
         return thrift_binary_annotations
 
     @staticmethod
-    def encode_span_id(span_id: int) -> int:
+    def _encode_local_endpoint(
+        local_endpoint: NodeEndpoint,
+    ) -> ttypes.Endpoint:
+        endpoint = ttypes.Endpoint(service_name=local_endpoint.service_name,)
+        if local_endpoint.ipv4 is not None:
+            endpoint.ipv4 = ipaddress.ip_address(local_endpoint.ipv4).packed
+        if local_endpoint.ipv6 is not None:
+            endpoint.ipv6 = ipaddress.ip_address(local_endpoint.ipv6).packed
+        if local_endpoint.port is not None:
+            endpoint.port = local_endpoint.port
+        return endpoint
+
+    @staticmethod
+    def _encode_span_id(span_id: int) -> int:
         """Since Thrift only supports signed integers (max size 64 bits) the
         Zipkin Thrift API defines the span id as an i64 field.
 
@@ -184,7 +192,7 @@ class ThriftEncoder(V1Encoder):
         return encoded_span_id
 
     @staticmethod
-    def encode_trace_id(trace_id: int) -> (int, Optional[int]):
+    def _encode_trace_id(trace_id: int) -> (int, Optional[int]):
         """Since Thrift only supports signed integers (max size 64 bits) the
         Zipkin Thrift API defines two fields to hold a trace id:
           - i64 trace_id

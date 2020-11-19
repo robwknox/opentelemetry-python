@@ -24,18 +24,10 @@ from opentelemetry.trace import Span, SpanContext, SpanKind
 
 # pylint: disable=W0223
 class V1Encoder(Encoder, abc.ABC):
-    def _extract_binary_annotations(
-        self, span: Span, encoded_local_endpoint: Dict
-    ) -> List[Dict]:
+    def _extract_binary_annotations(self, span: Span) -> List[Dict]:
         binary_annotations = []
         for tag_key, tag_value in self._extract_tags_from_span(span).items():
             if isinstance(tag_value, str) and self.max_tag_value_length > 0:
                 tag_value = tag_value[: self.max_tag_value_length]
-            binary_annotations.append(
-                {
-                    "key": tag_key,
-                    "value": tag_value,
-                    "endpoint": encoded_local_endpoint,
-                }
-            )
+            binary_annotations.append({"key": tag_key, "value": tag_value})
         return binary_annotations
