@@ -65,3 +65,39 @@ Additional details are available `in the specification
 API
 ---
 """
+import enum
+import logging
+from typing import Dict
+
+
+class Protocol(enum.Enum):
+    GRPC = "grpc"
+    HTTP_PROTOBUF = "http/protobuf"
+
+
+class Compression(enum.Enum):
+    GZIP = "gzip"
+    NONE = "none"
+
+
+DEFAULT_ENDPOINT = "localhost:4317"
+DEFAULT_PROTOCOL = Protocol.GRPC
+DEFAULT_INSECURE = False
+DEFAULT_COMPRESSION = Compression.NONE
+DEFAULT_TIMEOUT = 10  # seconds
+
+logger = logging.getLogger(__name__)
+
+
+def parse_headers(headers: str) -> Dict:
+    headers_dict = {}
+    if headers:
+        for header in headers.split(","):
+            header_parts = header.split("=")
+            if len(header_parts) == 2:
+                headers_dict[header_parts[0]] = header_parts[1]
+            else:
+                logger.warning(
+                    "Invalid OTLP exporter header skipped: %r" % header
+                )
+    return headers_dict

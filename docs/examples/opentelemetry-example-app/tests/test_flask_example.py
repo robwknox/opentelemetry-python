@@ -65,7 +65,7 @@ class TestFlaskExample(unittest.TestCase):
         )
         # assert the http request header was propagated through.
         prepared_request = self.send.call_args[0][1]
-        headers = prepared_request.headers
+        headers = prepared_request._headers
         self.assertRegex(
             headers["traceparent"],
             r"00-{:032x}-[0-9a-f]{{16}}-01".format(trace_id),
