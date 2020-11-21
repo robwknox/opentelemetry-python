@@ -93,7 +93,7 @@ class OTLPSpanExporter(SpanExporter):
         self.encoder = ProtobufEncoder()
 
     def export(self, spans: Sequence[Span]) -> SpanExportResult:
-        if isinstance(self.sender.GrcpSender):
+        if isinstance(self.sender, GrpcSender):
             send_result = self.sender.send(self.encoder.encode_spans(spans))
         else:
             send_result = self.sender.send(

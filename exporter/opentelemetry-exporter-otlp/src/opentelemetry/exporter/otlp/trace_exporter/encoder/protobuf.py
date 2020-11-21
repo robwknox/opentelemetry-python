@@ -69,7 +69,7 @@ logger = logging.getLogger(__name__)
 class ProtobufEncoder(Encoder):
     @staticmethod
     def content_type() -> str:
-        return "application/protobuf"
+        return "application/x-protobuf"
 
     @classmethod
     def serialize(cls, sdk_spans: Sequence[SDKSpan]) -> str:
@@ -93,46 +93,52 @@ def _encode_resource_spans(
     #     Instrumentation Library
     #       Spans
     #
-    # First loop organizes spans in this structure and creates the basic
-    #   pb2 objects of Resource, InstrumentationLibrary and Span
-    # Second loop packages these basic pb2 objects into the higher level
-    #   ResourceSpans and InstrumentationLibrarySpans for return
+    # First loop organizes the SDK spans in this structure. Protobuf messages
+    # are not hashable so we stick with SDK data in this phase.
     #
-    pb2_resources = {}
+    # Second loop encodes the data into Protobuf format.
+    #
+    sdk_resource_spans = {}
 
     for sdk_span in sdk_spans:
-        pb2_resource = _encode_resource(sdk_span.resource)
-        pb2_instrumentation = _encode_instrumentation_library(
-            sdk_span.instrumentation_info
-        )
+        sdk_resource = sdk_span.resource
+        sdk_instrumentation = sdk_span.instrumentation_info or "None"
         pb2_span = _encode_span(sdk_span)
 
-        if pb2_resource not in pb2_resources.keys():
-            pb2_resources[pb2_resource] = {pb2_instrumentation: [pb2_span]}
-        elif pb2_instrumentation not in pb2_resources[pb2_resource].keys():
-            pb2_resources[pb2_resource][pb2_instrumentation] = [pb2_span]
+        if sdk_resource not in sdk_resource_spans.keys():
+            sdk_resource_spans[sdk_resource] = {
+                sdk_instrumentation: [pb2_span]
+            }
+        elif (
+            sdk_instrumentation not in sdk_resource_spans[sdk_resource].keys()
+        ):
+            sdk_resource_spans[sdk_resource][sdk_instrumentation] = [pb2_span]
         else:
-            pb2_resources[pb2_resource][pb2_instrumentation].append(pb2_span)
+            sdk_resource_spans[sdk_resource][sdk_instrumentation].append(
+                pb2_span
+            )
 
-    encoded_resource_spans = []
+    pb2_resource_spans = []
 
-    for pb2_resource, pb2_instrumentations in pb2_resources.items():
+    for sdk_resource, sdk_instrumentations in sdk_resource_spans.items():
         instrumentation_library_spans = []
-        for pb2_instrumentation, pb2_spans in pb2_instrumentations.items():
+        for sdk_instrumentation, pb2_spans in sdk_instrumentations.items():
             instrumentation_library_spans.append(
                 PB2InstrumentationLibrarySpans(
-                    instrumentation_library=pb2_instrumentation,
+                    instrumentation_library=(
+                        _encode_instrumentation_library(sdk_instrumentation)
+                    ),
                     spans=pb2_spans,
                 )
             )
-        encoded_resource_spans.append(
+        pb2_resource_spans.append(
             PB2ResourceSpans(
-                resource=pb2_resource,
+                resource=_encode_resource(sdk_resource),
                 instrumentation_library_spans=instrumentation_library_spans,
             )
         )
 
-    return encoded_resource_spans
+    return pb2_resource_spans
 
 
 def _encode_resource(sdk_resource: SDKResource) -> PB2Resource:
