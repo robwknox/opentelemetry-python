@@ -16,7 +16,9 @@ from typing import Optional, Sequence
 
 from opentelemetry.configuration import Configuration
 from opentelemetry.exporter import otlp
-from opentelemetry.exporter.otlp.encoder import ProtobufEncoder
+from opentelemetry.exporter.otlp.metrics_exporter.encoder import (
+    ProtobufEncoder
+)
 from opentelemetry.exporter.otlp.sender import GrpcSender, HttpSender
 from opentelemetry.sdk.metrics.export import (
     ExportRecord,
@@ -32,7 +34,7 @@ class OTLPMetricsExporter(MetricsExporter):
         protocol: Optional[otlp.Protocol] = None,
         insecure: Optional[bool] = None,
         cert_file: Optional[str] = None,
-        headers: Optional[str] = None,
+        headers: otlp.HeadersInput = None,
         timeout: Optional[int] = None,
         compression: Optional[otlp.Compression] = None,
     ):
@@ -93,7 +95,23 @@ class OTLPMetricsExporter(MetricsExporter):
         self.encoder = ProtobufEncoder()
 
     def export(self, metrics: Sequence[ExportRecord]) -> MetricsExportResult:
-        pass  # TODO
+        if isinstance(self.sender, GrpcSender):
+            send_result = self.sender.send(
+                self.encoder.encode_metrics(metrics)
+            )
+        else:
+            send_result = self.sender.send(
+                self.encoder.serialize(metrics), self.encoder.content_type()
+            )
+
+        return (
+            MetricsExportResult.SUCCESS
+            if send_result
+            else MetricsExportResult.FAILURE
+        )
+
+    def shutdown(self) -> None:
+        pass
 
     @staticmethod
     def _get_env_or_default_compression() -> otlp.Compression:

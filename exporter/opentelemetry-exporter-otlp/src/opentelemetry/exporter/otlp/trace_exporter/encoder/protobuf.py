@@ -16,7 +16,6 @@ from collections import abc
 import logging
 from typing import Any, List, Optional, Sequence, Text
 
-from opentelemetry.exporter.otlp.trace_exporter.encoder import Encoder
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
     ExportTraceServiceRequest as PB2ExportTraceServiceRequest,
 )
@@ -54,7 +53,7 @@ from opentelemetry.trace.status import (
 )
 from opentelemetry.util.types import Attributes as SDKAttributes
 
-
+# pylint: disable=E1101
 SPAN_KIND_MAP = {
     SDKSpanKind.INTERNAL: PB2SPan.SpanKind.SPAN_KIND_INTERNAL,
     SDKSpanKind.SERVER: PB2SPan.SpanKind.SPAN_KIND_SERVER,
@@ -66,7 +65,7 @@ SPAN_KIND_MAP = {
 logger = logging.getLogger(__name__)
 
 
-class ProtobufEncoder(Encoder):
+class ProtobufEncoder:
     @staticmethod
     def content_type() -> str:
         return "application/x-protobuf"
