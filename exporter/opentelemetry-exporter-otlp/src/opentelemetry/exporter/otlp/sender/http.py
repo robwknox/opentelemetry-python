@@ -14,8 +14,9 @@
 
 import logging
 import requests
-from typing import Dict, Optional
+from typing import Optional
 
+from opentelemetry.exporter.otlp import Headers
 
 REQUESTS_SUCCESS_STATUS_CODES = (200, 202)
 
@@ -28,7 +29,7 @@ class HttpSender:
         endpoint: Optional[str] = None,
         insecure: Optional[bool] = None,
         cert_file: Optional[str] = None,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[Headers] = None,
         timeout: Optional[int] = None,
         compression: Optional[str] = None,
     ):

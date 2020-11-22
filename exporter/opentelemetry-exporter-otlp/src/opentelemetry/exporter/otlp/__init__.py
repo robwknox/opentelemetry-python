@@ -67,7 +67,7 @@ API
 """
 import enum
 import logging
-from typing import Dict
+from typing import Dict, Optional, Union
 
 
 class Protocol(enum.Enum):
@@ -76,6 +76,7 @@ class Protocol(enum.Enum):
 
 
 class Compression(enum.Enum):
+    DEFLATE = "deflate"
     GZIP = "gzip"
     NONE = "none"
 
@@ -86,18 +87,28 @@ DEFAULT_INSECURE = False
 DEFAULT_COMPRESSION = Compression.NONE
 DEFAULT_TIMEOUT = 10  # seconds
 
+HeadersInput = Union[Dict[str, str], str, None]
+Headers = Dict[str, str]
+
 logger = logging.getLogger(__name__)
 
 
-def parse_headers(headers: str) -> Dict:
-    headers_dict = {}
-    if headers:
-        for header in headers.split(","):
+def parse_headers(headers_input: HeadersInput) -> Headers:
+    if headers_input is None:
+        headers = {}
+    elif isinstance(headers_input, dict):
+        headers = headers_input
+    elif isinstance(headers_input, str):
+        headers = {}
+        for header in headers_input.split(","):
             header_parts = header.split("=")
             if len(header_parts) == 2:
-                headers_dict[header_parts[0]] = header_parts[1]
+                headers[header_parts[0]] = header_parts[1]
             else:
                 logger.warning(
                     "Invalid OTLP exporter header skipped: %r" % header
                 )
-    return headers_dict
+    else:
+        headers = {}
+
+    return headers

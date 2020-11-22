@@ -14,7 +14,7 @@
 
 import logging
 from time import sleep
-from typing import Dict, Optional
+from typing import List, Optional, Tuple
 
 from backoff import expo
 from google.rpc.error_details_pb2 import RetryInfo
@@ -30,10 +30,10 @@ from grpc import (
 
 from opentelemetry.exporter import otlp
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
-    ExportTraceServiceRequest
+    ExportTraceServiceRequest,
 )
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2_grpc import (
-    TraceServiceStub
+    TraceServiceStub,
 )
 
 RETRYABLE_ERROR_CODES = [
@@ -57,43 +57,37 @@ class GrpcSender:
         endpoint: str,
         insecure: Optional[bool] = False,
         cert_file: Optional[str] = None,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[otlp.Headers] = None,
         timeout: Optional[int] = None,
         compression: Optional[otlp.Compression] = None,
     ):
         self._endpoint = endpoint
         self._insecure = insecure
         self._cert_file = cert_file
-        self._headers = headers
+        self._headers = _parse_headers(headers)
         self._timeout = timeout
+        self._compression = _determine_compression(compression)
 
-        if not compression or compression == otlp.Compression.NONE:
-            grpc_compression = Compression.NoCompression
-        elif compression == otlp.Compression.GZIP:
-            grpc_compression = Compression.Gzip
-        else:
-            logger.warning("Unsupported compression type %r specified - "
-                           "defaulting to none" % compression)
-            grpc_compression = Compression.NoCompression
+        self._create_channel()
 
-        self._compression = grpc_compression
-
-        if insecure:
+    def _create_channel(self) -> None:
+        if self._insecure:
             self._channel = insecure_channel(
                 self._endpoint, compression=self._compression
             )
         else:
-            if not cert_file:
+            if not self._cert_file:
                 raise ValueError("No cert_file provided in secure mode.")
-            channel_credentials = _load_credential_from_file(cert_file)
+            channel_credentials = _load_credential_from_file(self._cert_file)
             if not channel_credentials:
                 raise ValueError(
-                    "Unable to read credentials from file: %r" % cert_file
+                    "Unable to read credentials from file: %r"
+                    % self._cert_file
                 )
             self._channel = secure_channel(
                 self._endpoint,
                 channel_credentials,
-                compression=self._compression
+                compression=self._compression,
             )
 
     def send(self, resource_spans: ExportTraceServiceRequest) -> bool:
@@ -140,6 +134,34 @@ class GrpcSender:
                 return False
 
         return False
+
+
+def _parse_headers(
+    otlp_headers: Optional[otlp.Headers],
+) -> Optional[List[Tuple[str, str]]]:
+    if not otlp_headers:
+        grpc_headers = None
+    else:
+        grpc_headers = []
+        for header_key, header_value in otlp_headers.items():
+            grpc_headers.append((header_key, header_value))
+    return grpc_headers
+
+
+def _determine_compression(
+    otlp_compression: Optional[otlp.Compression],
+) -> Optional[Compression]:
+    grpc_compression = Compression.NoCompression
+    if otlp_compression:
+        if otlp_compression == otlp.Compression.GZIP:
+            grpc_compression = Compression.Gzip
+        elif otlp_compression == otlp.Compression.DEFLATE:
+            logger.warning(
+                "Opentelemetry Collector does not currently "
+                "support deflate compression for gRPC - "
+                "defaulting to no compression"
+            )
+    return grpc_compression
 
 
 def _load_credential_from_file(filepath: str) -> Optional[ChannelCredentials]:

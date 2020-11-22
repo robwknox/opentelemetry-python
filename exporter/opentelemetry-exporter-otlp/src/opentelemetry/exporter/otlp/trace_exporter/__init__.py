@@ -32,7 +32,7 @@ class OTLPSpanExporter(SpanExporter):
         protocol: Optional[otlp.Protocol] = None,
         insecure: Optional[bool] = None,
         cert_file: Optional[str] = None,
-        headers: Optional[str] = None,
+        headers: otlp.HeadersInput = None,
         timeout: Optional[int] = None,
         compression: Optional[otlp.Compression] = None,
     ):
