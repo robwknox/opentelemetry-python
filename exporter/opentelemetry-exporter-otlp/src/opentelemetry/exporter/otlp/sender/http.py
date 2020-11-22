@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gzip
+from io import BytesIO
 import logging
 import requests
 from typing import Optional
+import zlib
 
-from opentelemetry.exporter.otlp import Headers
-
-REQUESTS_SUCCESS_STATUS_CODES = (200, 202)
+from opentelemetry.exporter.otlp import Compression, Headers
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class HttpSender:
         cert_file: Optional[str] = None,
         headers: Optional[Headers] = None,
         timeout: Optional[int] = None,
-        compression: Optional[str] = None,
+        compression: Optional[Compression] = None,
     ):
         self._endpoint = endpoint
         self._insecure = insecure
@@ -41,20 +42,31 @@ class HttpSender:
         self._compression = compression
 
     def send(self, serialized_spans: str, content_type: str) -> bool:
-        post_params = {
-            "data": serialized_spans,
+        post_args = {
             "headers": {**self._headers, **{"Content-Type": content_type}},
         }
 
         if self._timeout:
-            post_params["timeout"] = float(self._timeout)
+            post_args["timeout"] = float(self._timeout)
 
-        if not self._insecure:
-            post_params["verify"] = self._cert_file
+        if not self._insecure and self._cert_file:
+            post_args["verify"] = self._cert_file
 
-        post_result = requests.post(self._endpoint, **post_params)
+        if self._compression == Compression.GZIP:
+            gzip_data = BytesIO()
+            with gzip.GzipFile(fileobj=gzip_data, mode="w") as f:
+                f.write(serialized_spans)
+            post_args["headers"]["Content-Encoding"] = "gzip"
+            post_args["data"] = gzip_data.getvalue()
+        elif self._compression == Compression.DEFLATE:
+            post_args["headers"]["Content-Encoding"] = "deflate"
+            post_args["data"] = zlib.compress(bytes(serialized_spans))
+        else:
+            post_args["data"] = serialized_spans
 
-        if post_result.status_code in REQUESTS_SUCCESS_STATUS_CODES:
+        post_result = requests.post(self._endpoint, **post_args)
+
+        if post_result.status_code in (200, 202):
             success = True
         else:
             logger.error(
