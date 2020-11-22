@@ -87,7 +87,7 @@ class ProtobufEncoder(Encoder):
 def _encode_resource_spans(
     sdk_spans: Sequence[SDKSpan],
 ) -> List[PB2ResourceSpans]:
-    # We need to inspect the spans and group / structure them as:
+    # We need to inspect the spans and group + structure them as:
     #
     #   Resource
     #     Instrumentation Library

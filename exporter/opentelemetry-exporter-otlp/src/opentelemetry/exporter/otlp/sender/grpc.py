@@ -70,26 +70,6 @@ class GrpcSender:
 
         self._create_channel()
 
-    def _create_channel(self) -> None:
-        if self._insecure:
-            self._channel = insecure_channel(
-                self._endpoint, compression=self._compression
-            )
-        else:
-            if not self._cert_file:
-                raise ValueError("No cert_file provided in secure mode.")
-            channel_credentials = _load_credential_from_file(self._cert_file)
-            if not channel_credentials:
-                raise ValueError(
-                    "Unable to read credentials from file: %r"
-                    % self._cert_file
-                )
-            self._channel = secure_channel(
-                self._endpoint,
-                channel_credentials,
-                compression=self._compression,
-            )
-
     def send(self, resource_spans: ExportTraceServiceRequest) -> bool:
         # expo returns a generator that yields delay values which grow
         # exponentially. Once delay is greater than max_value, the yielded
@@ -135,6 +115,34 @@ class GrpcSender:
 
         return False
 
+    def _create_channel(self) -> None:
+        if self._insecure:
+            self._channel = insecure_channel(
+                self._endpoint, compression=self._compression
+            )
+        else:
+            if not self._cert_file:
+                raise ValueError("No cert_file provided in secure mode.")
+            channel_credentials = self._create_channel_credentials()
+            if not channel_credentials:
+                raise ValueError(
+                    "Unable to read credentials from file: %r"
+                    % self._cert_file
+                )
+            self._channel = secure_channel(
+                self._endpoint,
+                channel_credentials,
+                compression=self._compression,
+            )
+
+    def _create_channel_credentials(self) -> Optional[ChannelCredentials]:
+        try:
+            with open(self._cert_file, "rb") as f:
+                credential = f.read()
+                return ssl_channel_credentials(credential)
+        except FileNotFoundError:
+            return None
+
 
 def _parse_headers(
     otlp_headers: Optional[otlp.Headers],
@@ -162,12 +170,3 @@ def _determine_compression(
                 "defaulting to no compression"
             )
     return grpc_compression
-
-
-def _load_credential_from_file(filepath: str) -> Optional[ChannelCredentials]:
-    try:
-        with open(filepath, "rb") as f:
-            credential = f.read()
-            return ssl_channel_credentials(credential)
-    except FileNotFoundError:
-        return None
