@@ -27,7 +27,7 @@ class HttpSender:
     def __init__(
         self,
         endpoint: Optional[str] = None,
-        insecure: Optional[bool] = None,
+        insecure: Optional[bool] = False,
         cert_file: Optional[str] = None,
         headers: Optional[Headers] = None,
         timeout: Optional[int] = None,
@@ -41,11 +41,18 @@ class HttpSender:
         self._compression = compression
 
     def send(self, serialized_spans: str, content_type: str) -> bool:
-        post_result = requests.post(
-            url=self._endpoint,
-            data=serialized_spans,
-            headers={**self._headers, **{"Content-Type": content_type}},
-        )
+        post_params = {
+            "data": serialized_spans,
+            "headers": {**self._headers, **{"Content-Type": content_type}},
+        }
+
+        if self._timeout:
+            post_params["timeout"] = float(self._timeout)
+
+        if not self._insecure:
+            post_params["verify"] = self._cert_file
+
+        post_result = requests.post(self._endpoint, **post_params)
 
         if post_result.status_code in REQUESTS_SUCCESS_STATUS_CODES:
             success = True
