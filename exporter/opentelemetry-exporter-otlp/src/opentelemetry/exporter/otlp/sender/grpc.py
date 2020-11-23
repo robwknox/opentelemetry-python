@@ -28,7 +28,10 @@ from grpc import (
     ssl_channel_credentials,
 )
 
-from opentelemetry.exporter import otlp
+from opentelemetry.exporter.otlp.util import (
+    Compression as OTLPCompression,
+    Headers as OTLPHeaders,
+)
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
     ExportTraceServiceRequest,
 )
@@ -57,9 +60,9 @@ class GrpcSender:
         endpoint: str,
         insecure: Optional[bool] = False,
         cert_file: Optional[str] = None,
-        headers: Optional[otlp.Headers] = None,
+        headers: Optional[OTLPHeaders] = None,
         timeout: Optional[int] = None,
-        compression: Optional[otlp.Compression] = None,
+        compression: Optional[OTLPCompression] = None,
     ):
         self._endpoint = endpoint
         self._insecure = insecure
@@ -145,7 +148,7 @@ class GrpcSender:
 
 
 def _parse_headers(
-    otlp_headers: Optional[otlp.Headers],
+    otlp_headers: Optional[OTLPHeaders],
 ) -> Optional[List[Tuple[str, str]]]:
     if not otlp_headers:
         grpc_headers = None
@@ -157,13 +160,13 @@ def _parse_headers(
 
 
 def _determine_compression(
-    otlp_compression: Optional[otlp.Compression],
+    otlp_compression: Optional[OTLPCompression],
 ) -> Optional[Compression]:
     grpc_compression = Compression.NoCompression
     if otlp_compression:
-        if otlp_compression == otlp.Compression.GZIP:
+        if otlp_compression == OTLPCompression.GZIP:
             grpc_compression = Compression.Gzip
-        elif otlp_compression == otlp.Compression.DEFLATE:
+        elif otlp_compression == OTLPCompression.DEFLATE:
             logger.warning(
                 "Opentelemetry Collector does not currently "
                 "support deflate compression for gRPC - "

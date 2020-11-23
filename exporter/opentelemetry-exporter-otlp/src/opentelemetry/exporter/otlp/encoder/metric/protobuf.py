@@ -15,6 +15,7 @@
 import logging
 from typing import List, Optional, Sequence, Type, TypeVar
 
+from opentelemetry.exporter.otlp.encoder import Encoder
 from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import (
     ExportMetricsServiceRequest as PB2ExportMetricsServiceRequest,
 )
@@ -60,17 +61,17 @@ from opentelemetry.sdk.metrics.export.aggregate import (
 logger = logging.getLogger(__name__)
 
 
-class ProtobufEncoder:
+class MetricProtobufEncoder(Encoder):
     @staticmethod
     def content_type() -> str:
         return "application/x-protobuf"
 
     @classmethod
     def serialize(cls, sdk_metrics: Sequence[SDKExportRecord]) -> str:
-        return cls.encode_metrics(sdk_metrics).SerializeToString()
+        return cls.encode(sdk_metrics).SerializeToString()
 
     @staticmethod
-    def encode_metrics(
+    def encode(
         sdk_metrics: Sequence[SDKExportRecord],
     ) -> PB2ExportMetricsServiceRequest:
         return PB2ExportMetricsServiceRequest(
@@ -81,4 +82,4 @@ class ProtobufEncoder:
 def _encode_resource_metrics(
     sdk_metrics: Sequence[SDKExportRecord],
 ) -> List[PB2ResourceMetrics]:
-    pass
+    return []  # TODO

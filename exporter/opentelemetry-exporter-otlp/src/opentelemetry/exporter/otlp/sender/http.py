@@ -19,7 +19,7 @@ import requests
 from typing import Optional
 import zlib
 
-from opentelemetry.exporter.otlp import Compression, Headers
+from opentelemetry.exporter.otlp.util import Compression, Headers
 
 logger = logging.getLogger(__name__)
 

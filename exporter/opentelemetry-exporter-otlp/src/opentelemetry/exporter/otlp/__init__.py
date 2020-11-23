@@ -65,21 +65,29 @@ Additional details are available `in the specification
 API
 ---
 """
-import enum
+
 import logging
-from typing import Dict, Optional, Union
+from typing import Optional, Sequence, Union
 
-
-class Protocol(enum.Enum):
-    GRPC = "grpc"
-    HTTP_PROTOBUF = "http/protobuf"
-
-
-class Compression(enum.Enum):
-    DEFLATE = "deflate"
-    GZIP = "gzip"
-    NONE = "none"
-
+from opentelemetry.configuration import Configuration
+from opentelemetry.exporter.otlp.sender.grpc import GrpcSender
+from opentelemetry.exporter.otlp.sender.http import HttpSender
+from opentelemetry.exporter.otlp.encoder.metric.protobuf import (
+    MetricProtobufEncoder,
+)
+from opentelemetry.exporter.otlp.encoder.span.protobuf import (
+    SpanProtobufEncoder,
+)
+from opentelemetry.exporter.otlp.util import (
+    Compression,
+    ExporterType,
+    HeadersInput,
+    Headers,
+    Protocol,
+)
+from opentelemetry.sdk.metrics.export import ExportRecord, MetricsExportResult
+from opentelemetry.sdk.trace import Span
+from opentelemetry.sdk.trace.export import SpanExportResult
 
 DEFAULT_ENDPOINT = "localhost:4317"
 DEFAULT_PROTOCOL = Protocol.GRPC
@@ -87,13 +95,189 @@ DEFAULT_INSECURE = False
 DEFAULT_COMPRESSION = Compression.NONE
 DEFAULT_TIMEOUT = 10  # seconds
 
-HeadersInput = Union[Dict[str, str], str, None]
-Headers = Dict[str, str]
+SDKExportData = Union[Sequence[ExportRecord], Sequence[Span]]
+ExportResult = Union[MetricsExportResult, SpanExportResult]
 
 logger = logging.getLogger(__name__)
 
 
-def parse_headers(headers_input: HeadersInput) -> Headers:
+class OTLPExporter:
+    def __init__(
+        self,
+        exporter_type: ExporterType,
+        endpoint: Optional[str] = None,
+        protocol: Optional[Protocol] = None,
+        insecure: Optional[bool] = None,
+        cert_file: Optional[str] = None,
+        headers: HeadersInput = None,
+        timeout: Optional[int] = None,
+        compression: Optional[Compression] = None,
+    ):
+        self._exporter_type = exporter_type
+        type_name = exporter_type.value
+        config = Configuration()
+
+        endpoint = (
+            endpoint
+            or getattr(config, "EXPORTER_OTLP_" + type_name + "_ENDPOINT")
+            or getattr(config, "EXPORTER_OTLP_ENDPOINT")
+            or DEFAULT_ENDPOINT
+        )
+
+        protocol = (
+            protocol
+            or getattr(config, "EXPORTER_OTLP_" + type_name + "_PROTOCOL")
+            or getattr(config, "EXPORTER_OTLP_PROTOCOL")
+            or DEFAULT_PROTOCOL
+        )
+
+        insecure = (
+            insecure
+            or getattr(config, "EXPORTER_OTLP_" + type_name + "_INSECURE")
+            or getattr(config, "EXPORTER_OTLP_INSECURE")
+            or DEFAULT_INSECURE
+        )
+
+        if insecure:
+            cert_file = None
+        else:
+            cert_file = (
+                cert_file
+                or getattr(
+                    config, "EXPORTER_OTLP_" + type_name + "_CERTIFICATE"
+                )
+                or getattr(config, "EXPORTER_OTLP_CERTIFICATE")
+            )
+
+        headers = _parse_headers(
+            headers
+            or getattr(config, "EXPORTER_OTLP_" + type_name + "_HEADERS")
+            or getattr(config, "EXPORTER_OTLP_HEADERS")
+        )
+
+        timeout = (
+            timeout
+            or getattr(config, "EXPORTER_OTLP_" + type_name + "_TIMEOUT")
+            or getattr(config, "EXPORTER_OTLP_TIMEOUT")
+            or DEFAULT_TIMEOUT
+        )
+
+        compression = compression or self._get_env_or_default_compression()
+
+        if protocol == Protocol.GRPC:
+            self._sender = GrpcSender(
+                endpoint, insecure, cert_file, headers, timeout, compression
+            )
+        else:
+            self._sender = HttpSender(
+                endpoint, insecure, cert_file, headers, timeout, compression
+            )
+
+        if exporter_type == ExporterType.SPAN:
+            self._encoder = SpanProtobufEncoder()
+        else:
+            self._encoder = MetricProtobufEncoder()
+
+    def export(self, sdk_data: SDKExportData) -> ExportResult:
+        if isinstance(self._sender, GrpcSender):
+            send_result = self._sender.send(self._encoder.encode(sdk_data))
+        else:
+            send_result = self._sender.send(
+                self._encoder.serialize(sdk_data), self._encoder.content_type()
+            )
+
+        if self._exporter_type == ExporterType.SPAN:
+            export_result = (
+                SpanExportResult.SUCCESS
+                if send_result
+                else SpanExportResult.FAILURE
+            )
+        else:
+            export_result = (
+                MetricsExportResult.SUCCESS
+                if send_result
+                else MetricsExportResult.FAILURE
+            )
+
+        return export_result
+
+    def shutdown(self) -> None:
+        pass
+
+    def _get_env_or_default_compression(self) -> Compression:
+        config = Configuration()
+        exporter_span_env = getattr(
+            config,
+            "EXPORTER_OTLP_" + self._exporter_type.value + "_COMPRESSION",
+        )
+        if exporter_span_env:
+            compression = Compression(exporter_span_env)
+        else:
+            exporter_env = config.EXPORTER_OTLP_COMPRESSION
+            if exporter_env:
+                compression = Compression(exporter_env)
+            else:
+                compression = DEFAULT_COMPRESSION
+        return compression
+
+
+class OTLPSpanExporter(OTLPExporter):
+    """Convenience class"""
+
+    def __init__(
+        self,
+        endpoint: Optional[str] = None,
+        protocol: Optional[Protocol] = None,
+        insecure: Optional[bool] = None,
+        cert_file: Optional[str] = None,
+        headers: HeadersInput = None,
+        timeout: Optional[int] = None,
+        compression: Optional[Compression] = None,
+    ):
+        super().__init__(
+            exporter_type=ExporterType.SPAN,
+            endpoint=endpoint,
+            protocol=protocol,
+            insecure=insecure,
+            cert_file=cert_file,
+            headers=headers,
+            timeout=timeout,
+            compression=compression,
+        )
+
+    def export(self, sdk_spans: Sequence[Span]) -> SpanExportResult:
+        return super().export(sdk_spans)
+
+
+class OTLPMetricExporter(OTLPExporter):
+    """Convenience class"""
+
+    def __init__(
+        self,
+        endpoint: Optional[str] = None,
+        protocol: Optional[Protocol] = None,
+        insecure: Optional[bool] = None,
+        cert_file: Optional[str] = None,
+        headers: HeadersInput = None,
+        timeout: Optional[int] = None,
+        compression: Optional[Compression] = None,
+    ):
+        super().__init__(
+            exporter_type=ExporterType.METRIC,
+            endpoint=endpoint,
+            protocol=protocol,
+            insecure=insecure,
+            cert_file=cert_file,
+            headers=headers,
+            timeout=timeout,
+            compression=compression,
+        )
+
+    def export(self, sdk_spans: Sequence[ExportRecord]) -> MetricsExportResult:
+        return super().export(sdk_spans)
+
+
+def _parse_headers(headers_input: HeadersInput) -> Headers:
     if headers_input is None:
         headers = {}
     elif isinstance(headers_input, dict):
@@ -106,7 +290,7 @@ def parse_headers(headers_input: HeadersInput) -> Headers:
                 headers[header_parts[0]] = header_parts[1]
             else:
                 logger.warning(
-                    "Invalid OTLP exporter header skipped: %r" % header
+                    "Invalid OTLP exporter header skipped: %r", header
                 )
     else:
         headers = {}
