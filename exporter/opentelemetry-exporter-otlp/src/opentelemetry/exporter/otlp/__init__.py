@@ -198,8 +198,7 @@ class OTLPExporter:
     def _get_env_or_default_compression(self) -> Compression:
         config = Configuration()
         exporter_type_env_val = getattr(
-            config,
-            "EXPORTER_OTLP_" + self._type.value + "_COMPRESSION",
+            config, "EXPORTER_OTLP_" + self._type.value + "_COMPRESSION",
         )
         if exporter_type_env_val:
             compression = Compression(exporter_type_env_val)
@@ -214,8 +213,7 @@ class OTLPExporter:
     def _get_env_or_default_protocol(self) -> Protocol:
         config = Configuration()
         exporter_type_env_val = getattr(
-            config,
-            "EXPORTER_OTLP_" + self._type.value + "_PROTOCOL",
+            config, "EXPORTER_OTLP_" + self._type.value + "_PROTOCOL",
         )
         if exporter_type_env_val:
             protocol = Protocol(exporter_type_env_val)
@@ -229,10 +227,9 @@ class OTLPExporter:
 
     def _get_env_or_default_insecure(self) -> bool:
         config = Configuration()
-        env_val = (
-            getattr(config, "EXPORTER_OTLP_" + self._type.value + "_INSECURE")
-            or getattr(config, "EXPORTER_OTLP_INSECURE")
-        )
+        env_val = getattr(
+            config, "EXPORTER_OTLP_" + self._type.value + "_INSECURE"
+        ) or getattr(config, "EXPORTER_OTLP_INSECURE")
 
         if env_val:
             env_val_lower = str(env_val).lower()
@@ -244,7 +241,8 @@ class OTLPExporter:
                 logger.warning(
                     "Invalid value %s provided for 'insecure' "
                     "parameter - defaulting to True.",
-                    env_val_lower)
+                    env_val_lower,
+                )
                 insecure = True
         else:
             insecure = DEFAULT_INSECURE
