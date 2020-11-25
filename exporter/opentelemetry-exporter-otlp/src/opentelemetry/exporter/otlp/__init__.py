@@ -113,7 +113,7 @@ class OTLPExporter:
         timeout: Optional[int] = None,
         compression: Optional[Compression] = None,
     ):
-        self._exporter_type = exporter_type
+        self._type = exporter_type
         type_name = exporter_type.value
         config = Configuration()
 
@@ -124,19 +124,10 @@ class OTLPExporter:
             or DEFAULT_ENDPOINT
         )
 
-        protocol = (
-            protocol
-            or getattr(config, "EXPORTER_OTLP_" + type_name + "_PROTOCOL")
-            or getattr(config, "EXPORTER_OTLP_PROTOCOL")
-            or DEFAULT_PROTOCOL
-        )
+        protocol = protocol or self._get_env_or_default_protocol()
 
-        insecure = (
-            insecure
-            or getattr(config, "EXPORTER_OTLP_" + type_name + "_INSECURE")
-            or getattr(config, "EXPORTER_OTLP_INSECURE")
-            or DEFAULT_INSECURE
-        )
+        if insecure is None:
+            insecure = self._get_env_or_default_insecure()
 
         if insecure:
             cert_file = None
@@ -155,7 +146,7 @@ class OTLPExporter:
             or getattr(config, "EXPORTER_OTLP_HEADERS")
         )
 
-        timeout = (
+        timeout = int(
             timeout
             or getattr(config, "EXPORTER_OTLP_" + type_name + "_TIMEOUT")
             or getattr(config, "EXPORTER_OTLP_TIMEOUT")
@@ -186,7 +177,7 @@ class OTLPExporter:
                 self._encoder.serialize(sdk_data), self._encoder.content_type()
             )
 
-        if self._exporter_type == ExporterType.SPAN:
+        if self._type == ExporterType.SPAN:
             export_result = (
                 SpanExportResult.SUCCESS
                 if send_result
@@ -206,19 +197,59 @@ class OTLPExporter:
 
     def _get_env_or_default_compression(self) -> Compression:
         config = Configuration()
-        exporter_span_env = getattr(
+        exporter_type_env_val = getattr(
             config,
-            "EXPORTER_OTLP_" + self._exporter_type.value + "_COMPRESSION",
+            "EXPORTER_OTLP_" + self._type.value + "_COMPRESSION",
         )
-        if exporter_span_env:
-            compression = Compression(exporter_span_env)
+        if exporter_type_env_val:
+            compression = Compression(exporter_type_env_val)
         else:
-            exporter_env = config.EXPORTER_OTLP_COMPRESSION
-            if exporter_env:
-                compression = Compression(exporter_env)
+            exporter_env_val = config.EXPORTER_OTLP_COMPRESSION
+            if exporter_env_val:
+                compression = Compression(exporter_env_val)
             else:
                 compression = DEFAULT_COMPRESSION
         return compression
+
+    def _get_env_or_default_protocol(self) -> Protocol:
+        config = Configuration()
+        exporter_type_env_val = getattr(
+            config,
+            "EXPORTER_OTLP_" + self._type.value + "_PROTOCOL",
+        )
+        if exporter_type_env_val:
+            protocol = Protocol(exporter_type_env_val)
+        else:
+            exporter_env_val = config.EXPORTER_OTLP_PROTOCOL
+            if exporter_env_val:
+                protocol = Protocol(exporter_env_val)
+            else:
+                protocol = DEFAULT_PROTOCOL
+        return protocol
+
+    def _get_env_or_default_insecure(self) -> bool:
+        config = Configuration()
+        env_val = (
+            getattr(config, "EXPORTER_OTLP_" + self._type.value + "_INSECURE")
+            or getattr(config, "EXPORTER_OTLP_INSECURE")
+        )
+
+        if env_val:
+            env_val_lower = str(env_val).lower()
+            if env_val_lower == "false":
+                insecure = False
+            elif env_val_lower == "true":
+                insecure = True
+            else:
+                logger.warning(
+                    "Invalid value %s provided for 'insecure' "
+                    "parameter - defaulting to True.",
+                    env_val_lower)
+                insecure = True
+        else:
+            insecure = DEFAULT_INSECURE
+
+        return insecure
 
 
 class OTLPSpanExporter(OTLPExporter):
@@ -245,7 +276,7 @@ class OTLPSpanExporter(OTLPExporter):
             compression=compression,
         )
 
-    def export(self, sdk_spans: Sequence[Span]) -> SpanExportResult:
+    def export_spans(self, sdk_spans: Sequence[Span]) -> SpanExportResult:
         return super().export(sdk_spans)
 
 
@@ -273,14 +304,14 @@ class OTLPMetricExporter(OTLPExporter):
             compression=compression,
         )
 
-    def export(self, sdk_spans: Sequence[ExportRecord]) -> MetricsExportResult:
-        return super().export(sdk_spans)
+    def export_metrics(
+        self, sdk_metrics: Sequence[ExportRecord]
+    ) -> MetricsExportResult:
+        return super().export(sdk_metrics)
 
 
-def _parse_headers(headers_input: HeadersInput) -> Headers:
-    if headers_input is None:
-        headers = {}
-    elif isinstance(headers_input, dict):
+def _parse_headers(headers_input: HeadersInput) -> Optional[Headers]:
+    if isinstance(headers_input, dict):
         headers = headers_input
     elif isinstance(headers_input, str):
         headers = {}
@@ -292,7 +323,9 @@ def _parse_headers(headers_input: HeadersInput) -> Headers:
                 logger.warning(
                     "Invalid OTLP exporter header skipped: %r", header
                 )
+        if not headers:
+            headers = None
     else:
-        headers = {}
+        headers = None
 
     return headers

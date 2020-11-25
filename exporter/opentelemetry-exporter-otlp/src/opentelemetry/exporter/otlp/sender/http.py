@@ -37,9 +37,13 @@ class HttpSender:
         self._endpoint = endpoint
         self._insecure = insecure
         self._cert_file = cert_file
-        self._headers = headers
         self._timeout = timeout
         self._compression = compression
+
+        if not headers:
+            self._headers = {}
+        else:
+            self._headers = headers
 
     def send(self, serialized_spans: str, content_type: str) -> bool:
         post_args = {

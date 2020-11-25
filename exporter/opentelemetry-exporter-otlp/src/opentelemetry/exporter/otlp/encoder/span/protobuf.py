@@ -12,22 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import abc
 import logging
-from typing import Any, List, Optional, Sequence, Text
+from typing import List, Optional, Sequence
 
-from opentelemetry.exporter.otlp.encoder import Encoder
+from opentelemetry.exporter.otlp.encoder.protobuf import (
+    _encode_instrumentation_library,
+    _encode_resource,
+    ProtobufEncoder,
+)
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
     ExportTraceServiceRequest as PB2ExportTraceServiceRequest,
 )
-from opentelemetry.proto.common.v1.common_pb2 import (
-    AnyValue as PB2AnyValue,
-    InstrumentationLibrary as PB2InstrumentationLibrary,
-    KeyValue as PB2KeyValue,
-)
-from opentelemetry.proto.resource.v1.resource_pb2 import (
-    Resource as PB2Resource,
-)
+from opentelemetry.proto.common.v1.common_pb2 import KeyValue as PB2KeyValue
 from opentelemetry.proto.trace.v1.trace_pb2 import (
     InstrumentationLibrarySpans as PB2InstrumentationLibrarySpans,
     ResourceSpans as PB2ResourceSpans,
@@ -38,8 +34,6 @@ from opentelemetry.proto.trace.v1.trace_pb2 import (
 )
 from opentelemetry.sdk.trace import (
     Event as SDKEvent,
-    InstrumentationInfo as SDKInstrumentationInfo,
-    Resource as SDKResource,
     Span as SDKSpan,
     SpanContext as SDKSpanContext,
 )
@@ -66,11 +60,7 @@ SPAN_KIND_MAP = {
 logger = logging.getLogger(__name__)
 
 
-class SpanProtobufEncoder(Encoder):
-    @staticmethod
-    def content_type() -> str:
-        return "application/x-protobuf"
-
+class SpanProtobufEncoder(ProtobufEncoder):
     @classmethod
     def serialize(cls, sdk_spans: Sequence[SDKSpan]) -> str:
         return cls.encode(sdk_spans).SerializeToString()
@@ -137,30 +127,6 @@ def _encode_resource_spans(
         )
 
     return pb2_resource_spans
-
-
-def _encode_resource(sdk_resource: SDKResource) -> PB2Resource:
-    pb2_resource = PB2Resource()
-    for key, value in sdk_resource.attributes.items():
-        try:
-            # pylint: disable=no-member
-            pb2_resource.attributes.append(_encode_key_value(key, value))
-        except Exception as error:  # pylint: disable=broad-except
-            logger.exception(error)
-    return pb2_resource
-
-
-def _encode_instrumentation_library(
-    sdk_instrumentation_info: SDKInstrumentationInfo,
-) -> PB2InstrumentationLibrary:
-    if sdk_instrumentation_info is None:
-        pb2_instrumentation_library = PB2InstrumentationLibrary()
-    else:
-        pb2_instrumentation_library = PB2InstrumentationLibrary(
-            name=sdk_instrumentation_info.name,
-            version=sdk_instrumentation_info.version,
-        )
-    return pb2_instrumentation_library
 
 
 def _encode_span(sdk_span: SDKSpan) -> PB2SPan:
@@ -279,23 +245,3 @@ def _encode_span_id(span_id: int) -> bytes:
 
 def _encode_trace_id(trace_id: int) -> bytes:
     return trace_id.to_bytes(length=16, byteorder="big", signed=False)
-
-
-def _encode_key_value(key: Text, value: Any) -> PB2KeyValue:
-    if isinstance(value, bool):
-        any_value = PB2AnyValue(bool_value=value)
-    elif isinstance(value, str):
-        any_value = PB2AnyValue(string_value=value)
-    elif isinstance(value, int):
-        any_value = PB2AnyValue(int_value=value)
-    elif isinstance(value, float):
-        any_value = PB2AnyValue(double_value=value)
-    elif isinstance(value, abc.Sequence):
-        any_value = PB2AnyValue(array_value=value)
-    elif isinstance(value, abc.Mapping):
-        any_value = PB2AnyValue(kvlist_value=value)
-    else:
-        raise Exception(
-            "Invalid type {} of value {}".format(type(value), value)
-        )
-    return PB2KeyValue(key=key, value=any_value)
