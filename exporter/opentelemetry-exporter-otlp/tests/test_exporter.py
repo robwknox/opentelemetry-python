@@ -55,9 +55,11 @@ OS_ENV_METRIC_HEADERS = "osenv=metric"
 OS_ENV_METRIC_TIMEOUT = "500"
 
 
+# pylint: disable=protected-access
+# pylint: disable=too-many-public-methods
 class TestOTLPExporter(unittest.TestCase):
     def tearDown(self):
-        Configuration()._reset()  # pylint: disable=protected-access
+        Configuration()._reset()
         otlp_env_vars = [
             "OTEL_EXPORTER_OTLP_ENDPOINT",
             "OTEL_EXPORTER_OTLP_SPAN_ENDPOINT",
@@ -90,7 +92,7 @@ class TestOTLPExporter(unittest.TestCase):
         mock_grpc_sender.return_value = None
 
         # must be provided in default mode since we default to secure grpc
-        cert_file = "fixtures/service.crt"
+        cert_file = "path/to/service.crt"
 
         exporter = OTLPExporter(
             exporter_type=ExporterType.SPAN, cert_file=cert_file
@@ -126,7 +128,7 @@ class TestOTLPExporter(unittest.TestCase):
             endpoint="test.endpoint.com:46484",
             protocol=Protocol.GRPC,
             insecure=False,
-            cert_file="fixtures/service.crt",
+            cert_file="path/to/service.crt",
             headers="testHeader1=value1,testHeader2=value2",
             timeout=2,
             compression=Compression.GZIP,
@@ -139,12 +141,11 @@ class TestOTLPExporter(unittest.TestCase):
         mock_grpc_sender.assert_called_once_with(
             "test.endpoint.com:46484",
             False,
-            "fixtures/service.crt",
+            "path/to/service.crt",
             {"testHeader1": "value1", "testHeader2": "value2"},
             2,
             Compression.GZIP,
         )
-
 
     @patch("opentelemetry.exporter.otlp.sender.grpc.GrpcSender.__init__")
     def test_constructor_span_grpc_args_override_env(self, mock_grpc_sender):
@@ -161,7 +162,7 @@ class TestOTLPExporter(unittest.TestCase):
             endpoint="test.endpoint.com:46484",
             protocol=Protocol.GRPC,
             insecure=False,
-            cert_file="fixtures/service.crt",
+            cert_file="path/to/service.crt",
             headers="testHeader1=value1,testHeader2=value2",
             timeout=2,
             compression=Compression.GZIP,
@@ -174,7 +175,7 @@ class TestOTLPExporter(unittest.TestCase):
         mock_grpc_sender.assert_called_once_with(
             "test.endpoint.com:46484",
             False,
-            "fixtures/service.crt",
+            "path/to/service.crt",
             {"testHeader1": "value1", "testHeader2": "value2"},
             2,
             Compression.GZIP,
@@ -224,7 +225,7 @@ class TestOTLPExporter(unittest.TestCase):
 
     @patch("opentelemetry.exporter.otlp.sender.grpc.GrpcSender.__init__")
     def test_constructor_span_grpc_env_span_overrides_base(
-            self, mock_grpc_sender
+        self, mock_grpc_sender
     ):
         mock_grpc_sender.return_value = None
 
@@ -257,7 +258,7 @@ class TestOTLPExporter(unittest.TestCase):
             endpoint="test.endpoint.com:46484",
             protocol=Protocol.HTTP_PROTOBUF,
             insecure=False,
-            cert_file="fixtures/service.crt",
+            cert_file="path/to/service.crt",
             headers="testHeader1=value1,testHeader2=value2",
             timeout=2,
             compression=Compression.GZIP,
@@ -270,7 +271,7 @@ class TestOTLPExporter(unittest.TestCase):
         mock_http_sender.assert_called_once_with(
             "test.endpoint.com:46484",
             False,
-            "fixtures/service.crt",
+            "path/to/service.crt",
             {"testHeader1": "value1", "testHeader2": "value2"},
             2,
             Compression.GZIP,
@@ -291,7 +292,7 @@ class TestOTLPExporter(unittest.TestCase):
             endpoint="test.endpoint.com:46484",
             protocol=Protocol.HTTP_PROTOBUF,
             insecure=False,
-            cert_file="fixtures/service.crt",
+            cert_file="path/to/service.crt",
             headers="testHeader1=value1,testHeader2=value2",
             timeout=2,
             compression=Compression.GZIP,
@@ -304,7 +305,7 @@ class TestOTLPExporter(unittest.TestCase):
         mock_http_sender.assert_called_once_with(
             "test.endpoint.com:46484",
             False,
-            "fixtures/service.crt",
+            "path/to/service.crt",
             {"testHeader1": "value1", "testHeader2": "value2"},
             2,
             Compression.GZIP,
@@ -357,7 +358,9 @@ class TestOTLPExporter(unittest.TestCase):
         )
 
     @patch("opentelemetry.exporter.otlp.sender.http.HttpSender.__init__")
-    def test_constructor_span_http_env_span_overrides_base(self, mock_http_sender):
+    def test_constructor_span_http_env_span_overrides_base(
+        self, mock_http_sender
+    ):
         mock_http_sender.return_value = None
 
         self._set_os_env_base_vars(Protocol.GRPC, True, Compression.GZIP)
@@ -389,7 +392,7 @@ class TestOTLPExporter(unittest.TestCase):
             endpoint="test.endpoint.com:46484",
             protocol=Protocol.GRPC,
             insecure=False,
-            cert_file="fixtures/service.crt",
+            cert_file="path/to/service.crt",
             headers="testHeader1=value1,testHeader2=value2",
             timeout=2,
             compression=Compression.GZIP,
@@ -402,7 +405,7 @@ class TestOTLPExporter(unittest.TestCase):
         mock_grpc_sender.assert_called_once_with(
             "test.endpoint.com:46484",
             False,
-            "fixtures/service.crt",
+            "path/to/service.crt",
             {"testHeader1": "value1", "testHeader2": "value2"},
             2,
             Compression.GZIP,
@@ -423,7 +426,7 @@ class TestOTLPExporter(unittest.TestCase):
             endpoint="test.endpoint.com:46484",
             protocol=Protocol.GRPC,
             insecure=False,
-            cert_file="fixtures/service.crt",
+            cert_file="path/to/service.crt",
             headers="testHeader1=value1,testHeader2=value2",
             timeout=2,
             compression=Compression.GZIP,
@@ -436,7 +439,7 @@ class TestOTLPExporter(unittest.TestCase):
         mock_grpc_sender.assert_called_once_with(
             "test.endpoint.com:46484",
             False,
-            "fixtures/service.crt",
+            "path/to/service.crt",
             {"testHeader1": "value1", "testHeader2": "value2"},
             2,
             Compression.GZIP,
@@ -486,7 +489,7 @@ class TestOTLPExporter(unittest.TestCase):
 
     @patch("opentelemetry.exporter.otlp.sender.grpc.GrpcSender.__init__")
     def test_constructor_metric_grpc_env_metric_overrides_base(
-            self, mock_grpc_sender
+        self, mock_grpc_sender
     ):
         mock_grpc_sender.return_value = None
 
@@ -519,7 +522,7 @@ class TestOTLPExporter(unittest.TestCase):
             endpoint="test.endpoint.com:46484",
             protocol=Protocol.HTTP_PROTOBUF,
             insecure=False,
-            cert_file="fixtures/service.crt",
+            cert_file="path/to/service.crt",
             headers="testHeader1=value1,testHeader2=value2",
             timeout=2,
             compression=Compression.GZIP,
@@ -532,7 +535,7 @@ class TestOTLPExporter(unittest.TestCase):
         mock_http_sender.assert_called_once_with(
             "test.endpoint.com:46484",
             False,
-            "fixtures/service.crt",
+            "path/to/service.crt",
             {"testHeader1": "value1", "testHeader2": "value2"},
             2,
             Compression.GZIP,
@@ -553,7 +556,7 @@ class TestOTLPExporter(unittest.TestCase):
             endpoint="test.endpoint.com:46484",
             protocol=Protocol.HTTP_PROTOBUF,
             insecure=False,
-            cert_file="fixtures/service.crt",
+            cert_file="path/to/service.crt",
             headers="testHeader1=value1,testHeader2=value2",
             timeout=2,
             compression=Compression.GZIP,
@@ -566,7 +569,7 @@ class TestOTLPExporter(unittest.TestCase):
         mock_http_sender.assert_called_once_with(
             "test.endpoint.com:46484",
             False,
-            "fixtures/service.crt",
+            "path/to/service.crt",
             {"testHeader1": "value1", "testHeader2": "value2"},
             2,
             Compression.GZIP,
@@ -620,7 +623,7 @@ class TestOTLPExporter(unittest.TestCase):
 
     @patch("opentelemetry.exporter.otlp.sender.http.HttpSender.__init__")
     def test_constructor_metric_http_env_metric_overrides_base(
-            self, mock_http_sender
+        self, mock_http_sender
     ):
         mock_http_sender.return_value = None
 
@@ -646,7 +649,7 @@ class TestOTLPExporter(unittest.TestCase):
 
     @staticmethod
     def _set_os_env_base_vars(
-            protocol: Protocol, insecure: bool, compression: Compression
+        protocol: Protocol, insecure: bool, compression: Compression
     ):
         os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = OS_ENV_BASE_ENDPOINT
         os.environ["OTEL_EXPORTER_OTLP_PROTOCOL"] = protocol.value
@@ -658,33 +661,32 @@ class TestOTLPExporter(unittest.TestCase):
 
     @staticmethod
     def _set_os_env_span_vars(
-            protocol: Protocol, insecure: bool, compression: Compression
+        protocol: Protocol, insecure: bool, compression: Compression
     ):
         os.environ["OTEL_EXPORTER_OTLP_SPAN_ENDPOINT"] = OS_ENV_SPAN_ENDPOINT
         os.environ["OTEL_EXPORTER_OTLP_SPAN_PROTOCOL"] = protocol.value
         os.environ["OTEL_EXPORTER_OTLP_SPAN_INSECURE"] = str(insecure).lower()
-        os.environ["OTEL_EXPORTER_OTLP_SPAN_CERTIFICATE"] = (
-            OS_ENV_SPAN_CERTIFICATE
-        )
+        os.environ[
+            "OTEL_EXPORTER_OTLP_SPAN_CERTIFICATE"
+        ] = OS_ENV_SPAN_CERTIFICATE
         os.environ["OTEL_EXPORTER_OTLP_SPAN_HEADERS"] = OS_ENV_SPAN_HEADERS
         os.environ["OTEL_EXPORTER_OTLP_SPAN_COMPRESSION"] = compression.value
         os.environ["OTEL_EXPORTER_OTLP_SPAN_TIMEOUT"] = OS_ENV_SPAN_TIMEOUT
 
     @staticmethod
     def _set_os_env_metric_vars(
-            protocol: Protocol, insecure: bool, compression: Compression
+        protocol: Protocol, insecure: bool, compression: Compression
     ):
-        os.environ["OTEL_EXPORTER_OTLP_METRIC_ENDPOINT"] = (
-            OS_ENV_METRIC_ENDPOINT
-        )
+        os.environ[
+            "OTEL_EXPORTER_OTLP_METRIC_ENDPOINT"
+        ] = OS_ENV_METRIC_ENDPOINT
         os.environ["OTEL_EXPORTER_OTLP_METRIC_PROTOCOL"] = protocol.value
-        os.environ["OTEL_EXPORTER_OTLP_METRIC_INSECURE"] = (
-            str(insecure).lower()
-        )
-        os.environ["OTEL_EXPORTER_OTLP_METRIC_CERTIFICATE"] = (
-            OS_ENV_METRIC_CERTIFICATE
-        )
+        os.environ["OTEL_EXPORTER_OTLP_METRIC_INSECURE"] = str(
+            insecure
+        ).lower()
+        os.environ[
+            "OTEL_EXPORTER_OTLP_METRIC_CERTIFICATE"
+        ] = OS_ENV_METRIC_CERTIFICATE
         os.environ["OTEL_EXPORTER_OTLP_METRIC_HEADERS"] = OS_ENV_METRIC_HEADERS
         os.environ["OTEL_EXPORTER_OTLP_METRIC_COMPRESSION"] = compression.value
         os.environ["OTEL_EXPORTER_OTLP_METRIC_TIMEOUT"] = OS_ENV_METRIC_TIMEOUT
-

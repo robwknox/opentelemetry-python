@@ -35,9 +35,7 @@ from opentelemetry.exporter.otlp.util import (
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
     ExportTraceServiceRequest,
 )
-from opentelemetry.proto.collector.trace.v1.trace_service_pb2_grpc import (
-    TraceServiceStub,
-)
+from opentelemetry.proto.collector.trace.v1 import trace_service_pb2_grpc
 
 RETRYABLE_ERROR_CODES = [
     StatusCode.CANCELLED,
@@ -87,7 +85,7 @@ class GrpcSender:
                 return False
 
             try:
-                TraceServiceStub(self._channel).Export(
+                trace_service_pb2_grpc.TraceServiceStub(self._channel).Export(
                     request=resource_spans,
                     metadata=self._headers,
                     timeout=self._timeout,
@@ -161,7 +159,7 @@ def _parse_headers(
 
 def _determine_compression(
     otlp_compression: Optional[OTLPCompression],
-) -> Optional[Compression]:
+) -> Compression:
     grpc_compression = Compression.NoCompression
     if otlp_compression:
         if otlp_compression == OTLPCompression.GZIP:
