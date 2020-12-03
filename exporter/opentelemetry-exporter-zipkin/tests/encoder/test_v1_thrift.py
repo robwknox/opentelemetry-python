@@ -23,12 +23,13 @@ from opentelemetry.exporter.zipkin.encoder.v1.thrift.gen.zipkinCore import (
 )
 from opentelemetry.exporter.zipkin.node_endpoint import NodeEndpoint
 from opentelemetry.sdk import trace
-from opentelemetry.trace import SpanKind, TraceFlags
+from opentelemetry.trace import TraceFlags
 from thrift.Thrift import TType
 from thrift.transport.TTransport import TMemoryBuffer
 from thrift.protocol import TBinaryProtocol
 
 
+# pylint: disable=protected-access
 class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
     @staticmethod
     def get_encoder(*args, **kwargs) -> ThriftEncoder:
@@ -311,7 +312,7 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
             ),
         ]
 
-        self.assertEqual_encoded_spans(
+        self.assert_equal_encoded_spans(
             expected_thrift_spans,
             ThriftEncoder().serialize(otel_spans, NodeEndpoint(service_name)),
         )
@@ -376,14 +377,15 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
             debug=True,
         )
 
-        self.assertEqual_encoded_spans(
+        self.assert_equal_encoded_spans(
             [expected_thrift_span],
             ThriftEncoder(max_tag_value_length).serialize(
                 [otel_span], NodeEndpoint(service_name)
             ),
         )
 
-    def assertEqual_encoded_spans(
+    # pylint: disable=too-many-locals
+    def assert_equal_encoded_spans(
         self, expected_thrift_spans, actual_serialized_output
     ):
         """Since list ordering is not guaranteed in py3.5 or lower we can't
@@ -395,7 +397,7 @@ class TestThriftEncoder(CommonEncoderTestCases.CommonEncoderTest):
             protocol = TBinaryProtocol.TBinaryProtocolFactory().getProtocol(
                 TMemoryBuffer(actual_serialized_output)
             )
-            etype, size = protocol.readListBegin()
+            etype, size = protocol.readListBegin()  # pylint: disable=W0612
             for _ in range(size):
                 span = ttypes.Span()
                 span.read(protocol)
