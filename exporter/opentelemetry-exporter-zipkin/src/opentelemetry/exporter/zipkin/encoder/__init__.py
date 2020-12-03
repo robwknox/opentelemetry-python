@@ -18,9 +18,9 @@ Base module and abstract class for concrete transport encoders to extend.
 """
 
 import abc
-from enum import Enum
 import json
 import logging
+from enum import Enum
 from typing import Any, Dict, List, Optional, Sequence, TypeVar
 
 from opentelemetry.exporter.zipkin.node_endpoint import NodeEndpoint
@@ -81,7 +81,6 @@ class Encoder(abc.ABC):
 
         https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/trace/sdk_exporters/zipkin.md#request-payload
         """
-        pass
 
     @staticmethod
     @abc.abstractmethod

@@ -83,8 +83,9 @@ API
 """
 
 import logging
-import requests
 from typing import Optional, Sequence
+
+import requests
 
 from opentelemetry.configuration import Configuration
 from opentelemetry.exporter.zipkin.encoder import Encoder, Encoding
@@ -92,7 +93,7 @@ from opentelemetry.exporter.zipkin.encoder.v1.json import JsonV1Encoder
 from opentelemetry.exporter.zipkin.encoder.v1.thrift import ThriftEncoder
 from opentelemetry.exporter.zipkin.encoder.v2.json import JsonV2Encoder
 from opentelemetry.exporter.zipkin.encoder.v2.protobuf import ProtobufEncoder
-from opentelemetry.exporter.zipkin.node_endpoint import NodeEndpoint, IpInput
+from opentelemetry.exporter.zipkin.node_endpoint import IpInput, NodeEndpoint
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.trace import Span
 

@@ -14,7 +14,7 @@
 
 """Zipkin Export Encoders for JSON formats
 """
-from typing import Dict, List
+from typing import Dict
 
 from opentelemetry.exporter.zipkin.encoder import JsonEncoder
 from opentelemetry.exporter.zipkin.encoder.v1 import V1Encoder
