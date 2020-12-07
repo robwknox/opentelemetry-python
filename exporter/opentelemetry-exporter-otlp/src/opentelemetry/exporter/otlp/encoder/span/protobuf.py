@@ -17,6 +17,7 @@ from typing import List, Optional, Sequence
 
 from opentelemetry.exporter.otlp.encoder.protobuf import (
     _encode_instrumentation_library,
+    _encode_key_value,
     _encode_resource,
     ProtobufEncoder,
 )
@@ -90,7 +91,7 @@ def _encode_resource_spans(
 
     for sdk_span in sdk_spans:
         sdk_resource = sdk_span.resource
-        sdk_instrumentation = sdk_span.instrumentation_info or "None"
+        sdk_instrumentation = sdk_span.instrumentation_info or None
         pb2_span = _encode_span(sdk_span)
 
         if sdk_resource not in sdk_resource_spans.keys():
@@ -192,7 +193,7 @@ def _encode_links(sdk_links: List[SDKLink]) -> List[PB2SPan.Link]:
 
 def _encode_status(sdk_status: SDKStatus) -> Optional[PB2Status]:
     pb2_status = None
-    if sdk_status is not None:
+    if sdk_status is not None and not sdk_status.is_unset:
         # TODO: Update this when the proto definitions are updated to include
         #  UNSET and ERROR
         encoded_status_code = PB2Status.STATUS_CODE_OK
