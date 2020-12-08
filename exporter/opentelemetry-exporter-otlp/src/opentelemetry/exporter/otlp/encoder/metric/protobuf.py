@@ -111,7 +111,9 @@ def _encode_resource_metrics(
             continue
 
         sdk_resource = sdk_export_record.resource
-        sdk_instrumentation = sdk_export_record.instrument or "None"
+        sdk_instrumentation = (
+            sdk_export_record.instrument.meter.instrumentation_info or None
+        )
 
         if sdk_resource not in sdk_resource_metrics.keys():
             sdk_resource_metrics[sdk_resource] = {
